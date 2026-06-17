@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: report-discovery-agent
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn api_server:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_BASE_URL
+        value: "https://api.groq.com/openai/v1"
+      - key: MODEL_NAME
+        value: "meta-llama/llama-4-scout-17b-16e-instruct"
+      - key: BM25_TOP_N
+        value: "30"
+      - key: LLM_TOP_K
+        value: "5"
+      - key: WORKDAY_RAAS_URL
+        sync: false
+      - key: WORKDAY_ISU_USERNAME
+        sync: false
+      - key: WORKDAY_ISU_PASSWORD
+        sync: false

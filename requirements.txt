@@ -1,0 +1,11 @@
+# Core automation
+playwright>=1.50.0
+
+# Report Discovery Agent
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+openai>=1.0.0
+python-dotenv>=1.0.0
+rich>=13.0.0
+pandas>=2.0.0
+requests>=2.25.0

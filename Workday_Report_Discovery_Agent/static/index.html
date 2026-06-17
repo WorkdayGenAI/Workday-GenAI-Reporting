@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report Discovery Agent</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo-container">
+                <!-- <div class="logo-icon"></div> -->
+                <h1>Report Discovery Agent</h1>
+            </div>
+
+            <div class="stats-panel">
+                <div class="stat-item">
+                    <span class="stat-label">Total Reports</span>
+                    <span class="stat-value" id="catalog-count">--</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">LLM Status</span>
+                    <span class="stat-value status-indicator" id="llm-status">--</span>
+                </div>
+            </div>
+            <div class="settings-panel">
+                <h3>Settings</h3>
+                <div class="setting-item">
+                    <label for="llm-top-k">LLM Final Results: <span id="llm-val">10</span></label>
+                    <input type="range" id="llm-top-k" min="5" max="50" value="10">
+                </div>
+                <div class="setting-item toggle-item">
+                    <label for="use-llm">Use LLM Scoring</label>
+                    <label class="switch">
+                        <input type="checkbox" id="use-llm" checked>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
+
+            <button id="sync-btn" class="primary-btn sync-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                    <path d="M3 3v5h5"></path>
+                    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+                    <path d="M16 21v-5h5"></path>
+                </svg>
+                Sync from Workday
+            </button>
+
+            <!-- Selected Reports Panel -->
+            <div class="selected-panel" id="selected-panel">
+                <h3>Selected Reports <span class="selected-count" id="selected-count">0</span></h3>
+                <div class="selected-list" id="selected-list">
+                    <p class="selected-empty">Search and select reports to migrate.</p>
+                </div>
+                <button id="proceed-btn" class="primary-btn proceed-btn" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14"></path>
+                        <path d="m12 5 7 7-7 7"></path>
+                    </svg>
+                    Proceed to Migration
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="search-header">
+                <div class="search-container">
+                    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" id="search-input" placeholder="Search for reports (e.g. 'pre-hire details')..."
+                        autocomplete="off">
+                    <button id="search-btn" class="search-submit-btn">Search</button>
+                </div>
+            </header>
+
+            <div class="results-container" id="results-container">
+                <div class="empty-state" id="empty-state">
+                    <div class="empty-icon">🔍</div>
+                    <h2>Ready to search</h2>
+                    <p>Enter a query above to find the most relevant reports.</p>
+                    <p style="margin-top: 8px; opacity: 0.6; font-size: 0.9em;">Select reports, then click <strong>"Proceed to Migration"</strong> to start the workflow.</p>
+                </div>
+                <div class="loading-state hidden" id="loading-state">
+                    <div class="spinner"></div>
+                    <p>Analyzing and scoring reports...</p>
+                </div>
+                <div class="results-list" id="results-list">
+                    <!-- Results will be injected here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- Confirmation overlay -->
+    <div id="confirm-overlay" class="confirm-overlay hidden">
+        <div class="confirm-dialog">
+            <div class="confirm-icon">✓</div>
+            <h2>Reports Sent to Orchestrator</h2>
+            <p id="confirm-message"></p>
+            <p class="confirm-hint">You can close this browser tab now.<br>The orchestrator will continue in the terminal.</p>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
