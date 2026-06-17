@@ -46,3 +46,42 @@ def clean_input(s: str) -> str:
         if s.startswith(bom):
             s = s[len(bom):]
     return "".join(ch for ch in s if ch.isprintable()).strip()
+
+
+# ---------------------------------------------------------------------------
+# Path Resolution & Environment for PyInstaller
+# ---------------------------------------------------------------------------
+
+import sys
+import subprocess
+
+def get_bundled_dir() -> str:
+    """Return the path to bundled assets (sys._MEIPASS if frozen, else local dir)."""
+    if getattr(sys, 'frozen', False):
+        return sys._MEIPASS
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def get_user_dir() -> str:
+    """Return the path where the executable is physically located, or local dir."""
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def ensure_playwright_installed() -> None:
+    """Ensure the Playwright Chromium browser is installed on the user's system."""
+    import sys
+    from playwright._impl._driver import compute_driver_executable, get_driver_env
+
+    # We check if it's already installed by looking for the browser path.
+    # But a simple way is just to run `install chromium` unconditionally. Playwright 
+    # handles the cache and skips download if already present.
+    try:
+        driver_executable = compute_driver_executable()
+        env = get_driver_env()
+        print("Ensuring Playwright Chromium is installed (this may take a minute on first run)...")
+        # Run the node-based playwright install script bundled with playwright package
+        subprocess.run([driver_executable, "install", "chromium"], env=env, check=True)
+    except Exception as e:
+        print(f"Warning: Failed to ensure Playwright browsers are installed: {e}", file=sys.stderr)

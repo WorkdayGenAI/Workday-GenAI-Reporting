@@ -19,11 +19,12 @@ import os
 import re
 import sys
 
-from runner import run_config
-from utils import popup, clean_input
+from runner import run_config, StepError
+from utils import popup, clean_input, get_user_dir
 
 LOGIN_URL = "https://wd2-impl-identity.workday.com/wday/authgwy/accenture_dpt3/upc/login"
-DOWNLOADS_DIR = "exported_reports"
+# Where Excel files will be saved
+DOWNLOADS_DIR = os.path.join(get_user_dir(), "exported_reports")
 
 
 # --- user input ---------------------------------------------------------------
@@ -166,6 +167,9 @@ def build_config(reports: list[str]) -> dict:
 
 
 def main() -> int:
+    from utils import ensure_playwright_installed
+    ensure_playwright_installed()
+    print("=" * 60)
     reports = prompt_reports()
 
     # Credentials: prefer env vars; prompt if missing.

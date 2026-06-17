@@ -2,6 +2,13 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+if getattr(sys, 'frozen', False):
+    _user_dir = os.path.dirname(sys.executable)
+    _bundled_dir = sys._MEIPASS
+else:
+    _user_dir = os.path.dirname(os.path.abspath(__file__))
+    _bundled_dir = os.path.dirname(os.path.abspath(__file__))
+
 import json
 import logging
 import threading
@@ -120,7 +127,7 @@ def get_stats():
 # Orchestrator Integration (Selection & Confirmation)
 # ---------------------------------------------------------------------------
 
-SELECTION_FILE = os.path.join(os.path.dirname(__file__), ".selected_reports.json")
+SELECTION_FILE = os.path.join(_user_dir, ".selected_reports.json")
 _confirmation_event = threading.Event()
 
 
@@ -146,7 +153,7 @@ def confirm_selection(req: ConfirmRequest):
 # Static files (must be mounted AFTER all API routes)
 # ---------------------------------------------------------------------------
 
-static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+static_dir = os.path.join(_bundled_dir, "static")
 app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 
 

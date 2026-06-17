@@ -305,6 +305,8 @@ async def async_main() -> int:
 
 
 def main() -> int:
+    from utils import ensure_playwright_installed
+    ensure_playwright_installed()
     return asyncio.run(async_main())
 
 

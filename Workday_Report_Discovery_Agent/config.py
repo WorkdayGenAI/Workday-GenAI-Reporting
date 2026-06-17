@@ -6,9 +6,17 @@ sensible defaults for all tunable parameters.
 """
 
 import os
+import sys
 from dotenv import load_dotenv
 
-_env_path = os.path.join(os.path.dirname(__file__), ".env")
+if getattr(sys, 'frozen', False):
+    _user_dir = os.path.dirname(sys.executable)
+    _bundled_dir = sys._MEIPASS
+else:
+    _user_dir = os.path.dirname(__file__)
+    _bundled_dir = os.path.dirname(__file__)
+
+_env_path = os.path.join(_user_dir, ".env")
 load_dotenv(dotenv_path=_env_path)
 
 # ── LLM Configuration ──
@@ -41,10 +49,10 @@ MEDIUM_THRESHOLD: int = 40
 
 # ── Prompt Template Path ──
 PROMPT_TEMPLATE_PATH: str = os.path.join(
-    os.path.dirname(__file__), "prompts", "scoring_prompt.txt"
+    _bundled_dir, "prompts", "scoring_prompt.txt"
 )
 
 # ── Data Path ──
 DEFAULT_CATALOG_PATH: str = os.path.join(
-    os.path.dirname(__file__), "data", "All_Custom_Reports_with_Reference_ID.json"
+    _bundled_dir, "data", "All_Custom_Reports_with_Reference_ID.json"
 )

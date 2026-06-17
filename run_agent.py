@@ -22,7 +22,7 @@ import os
 import sys
 
 from runner import run_config
-from utils import popup, clean_input
+from utils import popup, clean_input, get_user_dir
 
 LOGIN_URL = "https://wd2-impl-identity.workday.com/wday/authgwy/accenture_dpt3/upc/login"
 
@@ -176,7 +176,7 @@ def _customer_central_steps(industry: str, package_name: str) -> list[dict]:
         {"action": "wait", "seconds": 2},
         # The download is a Workday file-attachment widget (role=link) labelled '<package>.dat';
         # clicking the '.dat' text triggers the file download, which we capture to disk.
-        {"action": "download", "text": ".dat", "path": f"{package_name}.dat", "timeout": 60000, "label": "download .dat extract"},
+        {"action": "download", "text": ".dat", "path": os.path.join(get_user_dir(), f"{package_name}.dat"), "timeout": 60000, "label": "download .dat extract"},
         {"action": "wait", "seconds": 2},
     ]
 
@@ -258,6 +258,8 @@ def build_config(industry: str, reports: list[str]) -> dict:
 
 
 def main() -> int:
+    from utils import ensure_playwright_installed
+    ensure_playwright_installed()
     industry, reports = prompt_inputs()
 
     # Credentials: prefer env vars; prompt if missing.
