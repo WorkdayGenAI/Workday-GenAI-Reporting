@@ -6,13 +6,13 @@ This project automates the discovery, migration, and export of Workday custom re
 
 ```mermaid
 flowchart TD
-    A[Report Discovery Agent<br/>(Web UI)] -->|User searches & selects reports| B[Selected Reports list]
-    B --> C{Orchestrator}
-    C -->|Spawns parallel agent| D[Report Migration Agent<br/>(Browser Automation)]
-    C -->|Spawns parallel agent| E[Report Export Agent<br/>(Browser Automation)]
+    A["Report Discovery Agent<br/>(Web UI)"] -->|User searches & selects reports| B["Selected Reports list"]
+    B --> C{"Orchestrator"}
+    C -->|Spawns parallel agent| D["Report Migration Agent<br/>(Browser Automation)"]
+    C -->|Spawns parallel agent| E["Report Export Agent<br/>(Browser Automation)"]
     
-    D -->|Creates Config Package & Extracts| F[(Customer Central .dat File)]
-    E -->|Downloads Report Outputs| G[(Excel .xlsx Files)]
+    D -->|Creates Config Package & Extracts| F[("Customer Central .dat File")]
+    E -->|Downloads Report Outputs| G[("Excel .xlsx Files")]
 ```
 
 ## The Three Agents
