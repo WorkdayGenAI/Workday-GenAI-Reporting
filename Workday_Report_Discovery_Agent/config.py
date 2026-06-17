@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 if getattr(sys, 'frozen', False):
     _user_dir = os.path.dirname(sys.executable)
-    _bundled_dir = sys._MEIPASS
+    _bundled_dir = os.path.join(sys._MEIPASS, "Workday_Report_Discovery_Agent")
 else:
     _user_dir = os.path.dirname(__file__)
     _bundled_dir = os.path.dirname(__file__)
