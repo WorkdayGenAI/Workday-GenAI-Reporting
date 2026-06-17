@@ -107,7 +107,10 @@ def _export_steps(report_name: str, is_first: bool) -> list[dict]:
          "state": "visible", "timeout": 30000, "label": "wait for search results"},
         {"action": "wait", "seconds": 2},
 
-        # --- 2. click Report Definition in search results instead of report name ---
+        # --- 2. click Tasks and Reports tab, then click Report Definition ---
+        {"action": "click", "text": "Tasks and Reports", "exact": False, "timeout": 20000,
+         "label": "click Tasks and Reports tab"},
+        {"action": "wait", "seconds": 2},
         {"action": "click", "text": "Report Definition", "exact": False, "timeout": 20000,
          "label": "click Report Definition in search results"},
 
