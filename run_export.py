@@ -101,16 +101,17 @@ def _export_steps(report_name: str, is_first: bool) -> list[dict]:
          "text": report_name, "label": f"search for {report_name!r}"},
         {"action": "press", "selector": "[data-automation-id='globalSearchInput']",
          "key": "Enter", "label": "submit search"},
-        # Wait for a clickable link (not just any text) containing the report name
-        # so we don't match the search bar's own typed text.
-        {"action": "wait_for", "selector": f"a:has-text('{report_name}'), [role='link']:has-text('{report_name}')",
-         "state": "visible", "timeout": 30000, "label": "wait for search results"},
+        # Wait for the Tasks and Reports tab to appear, then click it
+        {"action": "wait_for", "selector": "text='Tasks and Reports'", "state": "visible", "timeout": 30000, "label": "wait for Tasks and Reports tab"},
+        {"action": "wait", "seconds": 2},
+        {"action": "click", "text": "Tasks and Reports", "exact": False, "timeout": 20000, "label": "click Tasks and Reports tab"},
+        {"action": "wait", "seconds": 2},
+        
+        # Now wait for the clickable link containing the report name
+        {"action": "wait_for", "selector": f"a:has-text('{report_name}'), [role='link']:has-text('{report_name}')", "state": "visible", "timeout": 30000, "label": "wait for search results"},
         {"action": "wait", "seconds": 2},
 
-        # --- 2. click Tasks and Reports tab, then click Report Definition ---
-        {"action": "click", "text": "Tasks and Reports", "exact": False, "timeout": 20000,
-         "label": "click Tasks and Reports tab"},
-        {"action": "wait", "seconds": 2},
+        # --- 2. click Report Definition in search results ---
         {"action": "click", "text": "Report Definition", "exact": False, "timeout": 20000,
          "label": "click Report Definition in search results"},
 
