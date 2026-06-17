@@ -1,107 +1,57 @@
-# Browser Automation Tool (Playwright)
+# Workday Reporting Orchestration
 
-A small, config-driven browser automation runner. You describe what to do in a
-JSON file — navigate to a URL, click things, scroll, type, take screenshots —
-and `runner.py` executes the steps in order against a real browser.
+This project automates the discovery, migration, and export of Workday custom reports using an orchestrated set of intelligent agents and browser automation.
 
-## Setup
+## Architecture Flow
 
-Python and Playwright are already installed in the local `.venv`. If you ever
-need to recreate the environment:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m playwright install chromium
+```mermaid
+flowchart TD
+    A[Report Discovery Agent<br/>(Web UI)] -->|User searches & selects reports| B[Selected Reports list]
+    B --> C{Orchestrator}
+    C -->|Spawns parallel agent| D[Report Migration Agent<br/>(Browser Automation)]
+    C -->|Spawns parallel agent| E[Report Export Agent<br/>(Browser Automation)]
+    
+    D -->|Creates Config Package & Extracts| F[(Customer Central .dat File)]
+    E -->|Downloads Report Outputs| G[(Excel .xlsx Files)]
 ```
 
-## Interactive agent (Workday Configuration Package)
+## The Three Agents
 
-`run_agent.py` prompts for an **Industry name** and one or more **report names**, then runs
-the whole Workday flow and shows a pop-up when done:
+### 1. Report Discovery Agent (Web UI)
+The Discovery Agent provides an intuitive web interface for users to search for Workday reports. 
+- **Hybrid Search**: Combines BM25 (keyword matching) and an LLM (semantic search/re-ranking) to find the most relevant reports from your Workday catalog.
+- **Workday Sync**: Connects directly to a Workday RaaS (Report-as-a-Service) endpoint to keep the local report catalog up-to-date.
+- **Handoff**: Once a user selects the desired reports and clicks "Proceed with Selected Reports", the agent saves the selection and seamlessly signals the Orchestrator to begin downstream automation.
 
-```powershell
-$env:WD_USER = "username"
-$env:WD_PASS = "your-password"
-.\.venv\Scripts\python.exe run_agent.py
-```
+### 2. Report Migration Agent (`run_agent.py`)
+This agent uses Playwright browser automation to migrate the selected reports between Workday tenants (e.g., from DPT3 to Customer Central).
+- **Configuration Package**: Automatically navigates Workday to create a new Configuration Package based on a generated Industry name.
+- **Add Instances**: Searches for and adds all selected custom reports to the package.
+- **Migrate & Extract**: Initiates the migration to Customer Central, pauses for the user to complete any required SSO prompts, and automatically downloads the final `.dat` configuration extract file.
 
-```CMD
-set WD_USER=username
-set WD_PASS=your-password
-.\.venv\Scripts\python.exe run_agent.py
-```
+### 3. Report Export Agent (`run_export.py`)
+This agent runs in parallel with the Migration Agent to download the actual output data of the selected reports.
+- **Global Search**: Automatically searches for each selected report in the Workday global search bar.
+- **Report Definition**: Navigates directly to the report's "View Custom Report" or "Report Definition" page.
+- **Excel Export**: Clicks the "Export to Excel" button and securely downloads the output `.xlsx` files to your local `downloads/` folder.
 
-It will ask:
-- **Industry name** → the package is named `<Industry>_Config_Package`
-- **Report name(s)** → one per line (blank line to finish), or a single comma-separated line.
-  Works for 1 report or 10–15.
+## Orchestrator (`orchestrator.py`)
 
-Then it: creates the Configuration Package → sets implementation type **Custom Reports** →
-adds each report (filter by name + select) → clicks **Migrate** → **launches Object
-Transporter in Customer Central** (which opens in a **new browser tab** the agent switches to).
-It then **pauses for you to complete the Customer Central SSO login** (a native pop-up — click
-OK once the Workday home/search bar is visible), runs **Create Configuration Extract** (file
-name `<Industry>_Configuration_Extract`, description, source tenant `dpt3`, type *Configuration
-Package*), filters and selects the package created earlier, **refreshes the Extraction Reports
-screen until Status = Completed**, and **downloads the extract file** `<Industry>_Config_Package.dat`.
-Finally it shows **"Configuration Extract created successfully"**. On failure it shows an error
-pop-up and saves `error.png`. Set `AGENT_NO_POPUP=1` to use console prompts (Enter to resume a
-pause) instead of dialogs — useful for non-interactive runs.
+The `orchestrator.py` script is the **recommended** entry point. It ties the three agents together into a single, seamless workflow:
 
-> **Customer Central login URL:** `https://impl.workday.com/wday/authgwy/accenture_ptcc/login.htmld`
-> The agent reaches it automatically via the "Launch Object Transporter" hand-off (new tab).
-> The standalone `test_cc.py` harness opens it directly to iterate on the extract flow without
-> re-running the dpt3 migration (the extract reads packages straight from the dpt3 source tenant).
+1. It launches the **Report Discovery Agent** server and opens the Web UI in your default browser.
+2. It waits for you to search and confirm your report selection.
+3. Once confirmed, it takes your selected reports and launches both the **Migration Agent** and the **Export Agent** simultaneously in isolated browser contexts using `asyncio.gather`.
+4. It provides a final summary table when both automation agents finish their tasks.
 
-> Configuration Package names must be **unique** in the tenant — use a fresh Industry name each run.
-
-## Report Export Agent (Excel download — runs in parallel)
-
-`run_export.py` downloads each report as an **Excel** file from the DPT3 tenant.
-It runs in its **own browser window**, so you can launch it **at the same time** as
-the migration agent (`run_agent.py`) from a second CMD window.
-
-**CMD window 1 — Migration:**
-```cmd
-set WD_USER=username
-set WD_PASS=your-password
-.venv\Scripts\python.exe run_agent.py
-```
-
-**CMD window 2 — Export (parallel):**
-```cmd
-set WD_USER=username
-set WD_PASS=your-password
-.venv\Scripts\python.exe run_export.py
-```
-
-It will ask for report names (same input format: one per line or comma-separated).
-For each report it: searches in global search → opens the **View Custom Report** page
-→ clicks the report name in the header to open the report → clicks **Export to Excel**
-→ clicks **Download** in the popup. Excel files are saved to the current directory
-with the browser's suggested filename.
-
-## Orchestrator — single command, both agents in parallel
-
-`orchestrator.py` is the **recommended** way to run both agents. It takes your input
-**once** (industry + report names), then launches Migration and Export simultaneously
-in two isolated Playwright BrowserContexts within a single `asyncio.gather` call.
-
+**To run the full flow:**
 ```cmd
 set WD_USER=username
 set WD_PASS=your-password
 .venv\Scripts\python.exe orchestrator.py
 ```
 
-- **One prompt** — enter industry + reports once; both agents share the same input
-- **True parallelism** — each agent gets its own browser context (separate cookies/session)
-- **Independent failures** — if one agent fails, the other continues to completion
-- **Final summary** — prints a combined results table when both finish
-
-> Architecture: `orchestrator.py` → builds configs via `run_agent.build_config()` and
-> `run_export.build_config()` → runs both through `async_runner.run_config_async()` using
-> `async_playwright` (not the sync API).
+## Setup
 
 ## Run (static config)
 
