@@ -70,10 +70,11 @@ def _export_steps(report_name: str, is_first: bool) -> list[dict]:
 
     Flow per report:
       1. Type report name in the global search bar and press Enter
-      2. Click the report name link in the search results
-      3. Report data page loads — click the report name in the blue header
-      4. View Custom Report page opens — click the "Export to Excel" icon
-      5. Wait for the "Export Document" popup, then click Download
+      2. Click the Tasks and Reports tab
+      3. Scroll to the exact report name and click its "Report Definition" link
+      4. Report data page loads — click the report name in the blue header
+      5. View Custom Report page opens — click the "Export to Excel" icon
+      6. Wait for the "Export Document" popup, then click Download
     """
     safe = _safe_filename(report_name)
     steps: list[dict] = []
@@ -87,6 +88,11 @@ def _export_steps(report_name: str, is_first: bool) -> list[dict]:
              "label": "dismiss popup if still open"},
             {"action": "wait", "seconds": 2},
         ])
+
+    # Escape single quotes in report names for use inside CSS selectors.
+    # Playwright CSS :has-text() uses unquoted strings, but the locator()
+    # API wraps them — so we just need to escape for the Python f-string.
+    css_safe_name = report_name.replace("'", "\\'")
 
     steps.extend([
         # --- 1. search for the report ---
@@ -105,15 +111,30 @@ def _export_steps(report_name: str, is_first: bool) -> list[dict]:
         {"action": "wait_for", "selector": "text='Tasks and Reports'", "state": "visible", "timeout": 30000, "label": "wait for Tasks and Reports tab"},
         {"action": "wait", "seconds": 2},
         {"action": "click", "text": "Tasks and Reports", "exact": False, "timeout": 20000, "label": "click Tasks and Reports tab"},
-        {"action": "wait", "seconds": 2},
-        
-        # Now wait for the clickable link containing the report name
-        {"action": "wait_for", "selector": f"a:has-text('{report_name}'), [role='link']:has-text('{report_name}')", "state": "visible", "timeout": 30000, "label": "wait for search results"},
-        {"action": "wait", "seconds": 2},
+        {"action": "wait", "seconds": 3},
 
-        # --- 2. click Report Definition in search results ---
-        {"action": "click", "text": "Report Definition", "exact": False, "timeout": 20000,
-         "label": "click Report Definition in search results"},
+        # --- 2. scroll to the exact report name and click its Report Definition ---
+        # The search results may contain multiple reports with similar names
+        # (e.g. "Payments Applied This Year" AND "CR Payments Applied This Year").
+        # Each result is a block containing the report name + "Report Definition" sub-link.
+        # We must click the "Report Definition" that belongs to the EXACT report name.
+        #
+        # Strategy: use a Playwright locator that scopes to the link matching the
+        # exact report name, then navigate to its parent container, and within
+        # that container find the "Report Definition" link.
+        {"action": "scroll_into_view",
+         "selector": f"a:has-text('{css_safe_name}'), [role='link']:has-text('{css_safe_name}')",
+         "timeout": 30000, "label": f"scroll to {report_name!r} in search results"},
+        {"action": "wait", "seconds": 1},
+
+        # Click the "Report Definition" link scoped to the search-result block
+        # that contains the exact report name. Workday wraps each result in a
+        # container div — the :has() pseudo-class restricts our click to ONLY
+        # the "Report Definition" under the correct report.
+        {"action": "click",
+         "selector": f"div:has(a:text-is('{css_safe_name}')) a:has-text('Report Definition')",
+         "timeout": 20000,
+         "label": f"click Report Definition under {report_name!r}"},
 
         # --- 3. report data page loads — click report name in the blue header ---
         # After clicking the search result, the report data/output page opens
