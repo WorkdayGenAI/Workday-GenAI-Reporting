@@ -69,6 +69,96 @@ def get_user_dir() -> str:
     return os.path.dirname(os.path.abspath(__file__))
 
 
+# ---------------------------------------------------------------------------
+# .env auto-setup for distributable .exe
+# ---------------------------------------------------------------------------
+
+_ENV_TEMPLATE = """\
+# =============================================================================
+# Reporting Orchestrator — Environment Configuration
+# =============================================================================
+# Place this file next to the Reporting_Orchestrator.exe and fill in the values.
+# Lines starting with '#' are comments and are ignored.
+# =============================================================================
+
+# ── LLM Configuration (for AI-powered report discovery) ──
+# Get your API key from https://platform.openai.com/api-keys
+OPENAI_API_KEY=
+OPENAI_BASE_URL=
+MODEL_NAME=gpt-4o
+
+# ── Workday Tenant Credentials (for catalog sync from Workday RaaS) ──
+WORKDAY_RAAS_URL=
+WORKDAY_ISU_USERNAME=
+WORKDAY_ISU_PASSWORD=
+
+# ── Workday Login Credentials (for Migration & Export agents) ──
+# These are prompted at runtime if left blank here.
+WD_USER=
+WD_PASS=
+
+# ── Search Tuning (optional — defaults are fine) ──
+BM25_TOP_N=30
+LLM_TOP_K=5
+"""
+
+
+def ensure_env_file() -> None:
+    """Check for .env next to the executable; create a template if missing.
+
+    Also loads the .env into the process environment so ALL agents pick up
+    the values (not just the Discovery Agent's config.py).
+    """
+    user_dir = get_user_dir()
+    env_path = os.path.join(user_dir, ".env")
+
+    created_new = False
+    if not os.path.isfile(env_path):
+        # First run on this machine — create the template
+        try:
+            with open(env_path, "w", encoding="utf-8") as f:
+                f.write(_ENV_TEMPLATE)
+            created_new = True
+            print(f"\n  [SETUP] Created .env template at: {env_path}")
+        except OSError as exc:
+            print(f"\n  [WARNING] Could not create .env file: {exc}")
+
+    # Load the .env file into os.environ (override=False so system env wins)
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(dotenv_path=env_path, override=False)
+    except ImportError:
+        pass  # dotenv not available — env vars must be set manually
+
+    # Show clear startup diagnostics
+    _print_env_status(created_new, env_path)
+
+
+def _print_env_status(created_new: bool, env_path: str) -> None:
+    """Print a clear summary of which config values are set / missing."""
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    wd_user = os.environ.get("WD_USER", "").strip()
+
+    print(f"\n  {'=' * 56}")
+    print(f"  Environment Configuration")
+    print(f"  {'=' * 56}")
+    print(f"  .env location : {env_path}")
+    print(f"  OPENAI_API_KEY : {'[SET]' if api_key else '[NOT SET] — LLM scoring will be disabled'}")
+    print(f"  WD_USER        : {'[SET]' if wd_user else '[NOT SET] — will be prompted at runtime'}")
+    print(f"  {'=' * 56}")
+
+    if created_new:
+        msg = (
+            "A new .env configuration file has been created at:\n\n"
+            f"{env_path}\n\n"
+            "Please open this file in a text editor and fill in your\n"
+            "API keys and credentials, then restart the application.\n\n"
+            "The application will continue WITHOUT LLM scoring for now\n"
+            "(basic keyword search will still work)."
+        )
+        popup("Setup Required — .env File Created", msg, error=True)
+
+
 def ensure_playwright_installed() -> None:
     """Ensure the Playwright Chromium browser is installed on the user's system."""
     import sys
