@@ -132,7 +132,7 @@ def _export_steps(report_name: str, is_first: bool) -> list[dict]:
         # container div — the :has() pseudo-class restricts our click to ONLY
         # the "Report Definition" under the correct report.
         {"action": "click",
-         "selector": f"div:has(a:text-is('{css_safe_name}')) a:has-text('Report Definition')",
+         "selector": f"li:has(a:text-is('{css_safe_name}')) a:has-text('Report Definition')",
          "timeout": 20000,
          "label": f"click Report Definition under {report_name!r}"},
 
