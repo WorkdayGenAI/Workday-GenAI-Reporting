@@ -122,7 +122,7 @@ def _customer_central_steps(industry: str, package_name: str) -> list[dict]:
         {"action": "pause",
          "title": "Customer Central login required",
          "message": (
-             "Object Transporter has opened the Customer Central tenant.\n\n"
+             "The automation has navigated to the Customer Central tenant.\n\n"
              "Please complete the SSO login in the browser window.\n\n"
              "Click OK once you are logged in to continue the automation."
          ),
@@ -238,11 +238,8 @@ def build_config(industry: str, reports: list[str]) -> dict:
         # An "acknowledge this message" dialog (with OK) sometimes appears first.
         {"action": "click", "selector": "button[data-automation-id='wd-CommandButton_uic_okButton']", "optional": True, "timeout": 8000, "label": "acknowledge migrate message if shown"},
         {"action": "wait", "seconds": 3},
-        # Launch Object Transporter -> opens the Customer Central tenant in a NEW browser tab.
-        # 'opens_tab' captures that tab and switches the active page to it, so every step after
-        # this runs against Customer Central instead of the (now stale) dpt3 tab.
-        {"action": "click", "text": "Launch Object Transporter in Customer Central", "timeout": 20000, "opens_tab": True, "tab_timeout": 30000, "label": "click 'Launch Object Transporter in Customer Central' (new tab)"},
-        {"action": "wait", "seconds": 5, "label": "wait for Customer Central tab to load"},
+        # Navigate directly to Customer Central instead of clicking the link
+        {"action": "navigate", "url": "https://impl.workday.com/wday/authgwy/accenture_ptcc/login.htmld", "wait_until": "domcontentloaded", "timeout": 90000, "label": "open Customer Central login"},
     ]
 
     # one Customer Central block: create the configuration extract and download it
