@@ -8,6 +8,8 @@ from __future__ import annotations
 import ctypes
 import os
 
+import console as con
+
 
 # ---------------------------------------------------------------------------
 # Windows pop-up
@@ -139,13 +141,17 @@ def _print_env_status(created_new: bool, env_path: str) -> None:
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
     wd_user = os.environ.get("WD_USER", "").strip()
 
-    print(f"\n  {'=' * 56}")
-    print(f"  Environment Configuration")
-    print(f"  {'=' * 56}")
-    print(f"  .env location : {env_path}")
-    print(f"  OPENAI_API_KEY : {'[SET]' if api_key else '[NOT SET] — LLM scoring will be disabled'}")
-    print(f"  WD_USER        : {'[SET]' if wd_user else '[NOT SET] — will be prompted at runtime'}")
-    print(f"  {'=' * 56}")
+    con.section("Environment Configuration")
+    print()
+    con.info(".env location", env_path)
+    if api_key:
+        con.info("OPENAI_API_KEY", f"{con.C.B_GREEN}[SET]{con.C.RESET}")
+    else:
+        con.info("OPENAI_API_KEY", f"{con.C.B_YELLOW}[NOT SET] — LLM scoring disabled{con.C.RESET}")
+    if wd_user:
+        con.info("WD_USER", f"{con.C.B_GREEN}[SET]{con.C.RESET}")
+    else:
+        con.info("WD_USER", f"{con.C.DIM}[NOT SET] — will be prompted{con.C.RESET}")
 
     if created_new:
         msg = (
@@ -170,7 +176,7 @@ def ensure_playwright_installed() -> None:
     try:
         driver_executable = compute_driver_executable()
         env = get_driver_env()
-        print("Ensuring Playwright Chromium is installed (this may take a minute on first run)...")
+        con.dim("Ensuring Playwright Chromium is installed (this may take a minute on first run)…")
         # Run the node-based playwright install script bundled with playwright package
         subprocess.run([driver_executable, "install", "chromium"], env=env, check=True)
     except Exception as e:

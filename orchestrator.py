@@ -35,6 +35,9 @@ from runner import run_config_async
 # Shared helpers.
 from utils import popup, clean_input
 
+# Styled console output
+import console as con
+
 
 # ---------------------------------------------------------------------------
 # Discovery Agent integration
@@ -49,41 +52,41 @@ def _run_discovery() -> list[str]:
         from Workday_Report_Discovery_Agent.api_server import start_server, wait_for_confirmation
         import webbrowser
         
-        print("\n  Starting Report Discovery web server on http://127.0.0.1:8000 ...")
+        con.dim("Starting Report Discovery web server on http://127.0.0.1:8000 ...")
         # Start the FastAPI server in a background thread
         start_server(port=8000)
         
         # Automatically open the browser
         url = "http://127.0.0.1:8000"
-        print(f"  Opening browser: {url}")
+        con.dim(f"Opening browser: {url}")
         webbrowser.open(url)
         
         # Block until the user clicks 'Proceed' in the web UI, or timeout (15 mins)
         reports = wait_for_confirmation(timeout=900)
         
         if not reports:
-            print("  No reports were selected (or timed out).")
+            con.warn("No reports were selected (or timed out).")
         return reports
         
     except ImportError as exc:
-        print(f"\n  ⚠ Discovery server unavailable: {exc}")
-        print("    Falling back to manual report entry.\n")
+        con.warn(f"Discovery server unavailable: {exc}")
+        con.dim("Falling back to manual report entry.")
         return []
 
 def _prompt_manual_reports() -> list[str]:
     """Fallback: manually type report names."""
-    print(
-        "\nEnter the report name(s) to process.\n"
-        "  - one per line, OR a single comma-separated line\n"
-        "  - press Enter on a blank line when done"
-    )
+    print()
+    con.dim("Enter the report name(s) to process.")
+    con.dim("  • one per line, OR a single comma-separated line")
+    con.dim("  • press Enter on a blank line when done")
+    print()
     reports: list[str] = []
     while True:
-        line = clean_input(input("  report> "))
+        line = clean_input(input(f"  {con.C.B_CYAN}report▸{con.C.RESET} "))
         if line == "":
             if reports:
                 break
-            print("  Please enter at least one report name.")
+            con.warn("Please enter at least one report name.")
             continue
         line = line.strip("{}").strip()
         parts = line.split(",") if "," in line else [line]
@@ -107,45 +110,59 @@ def prompt_inputs() -> tuple[str, list[str], bool]:
 
     Returns ``(industry, reports, run_export)``.
     """
-    print("=" * 60)
-    print("  Workday Agent Orchestrator")
-    print("  Discovery → Migration → Export")
-    print("=" * 60)
+    con.banner(
+        "Workday Report Migration Orchestrator",
+        "Discovery  →  Migration  →  Export",
+    )
 
+    # ── Industry ─────────────────────────────────────────────────────────
+    con.section("Configuration")
+    print()
     industry = ""
     while not industry:
-        industry = clean_input(input("\nEnter the Industry name: "))
+        industry = clean_input(con.styled_input("Industry name: "))
         if not industry:
-            print("  Industry name cannot be empty.")
+            con.warn("Industry name cannot be empty.")
 
-    # --- Report selection: Discovery UI or Manual ---
-    print("\n  How would you like to select reports?")
-    print("    1. Search the report catalog in browser (recommended)")
-    print("    2. Manually type report names in terminal")
+    # ── Report selection ────────────────────────────────────────────────
+    print()
+    con.section("Report Selection")
+    print()
+    con.dim("How would you like to select reports?")
+    print()
+    con.menu_option("1", "Search the report catalog in browser", recommended=True)
+    con.menu_option("2", "Manually type report names in terminal")
+    print()
     choice = ""
     while choice not in ("1", "2"):
-        choice = clean_input(input("  Choice [1/2]: "))
+        choice = clean_input(con.styled_input("Choice [1/2]: "))
         if choice not in ("1", "2"):
-            print("  Please enter 1 or 2.")
+            con.warn("Please enter 1 or 2.")
 
     if choice == "1":
         reports = _run_discovery()
         if not reports:
-            print("  No reports selected from web UI. Switching to manual entry.\n")
+            con.warn("No reports selected from web UI. Switching to manual entry.")
             reports = _prompt_manual_reports()
     else:
         reports = _prompt_manual_reports()
 
-    # Ask whether to also run the Export agent
-    print("\n  Do you also want to download the report definitions as Excel?")
-    print("  (This runs the Export agent in parallel with Migration)")
+    # ── Export toggle ───────────────────────────────────────────────────
+    print()
+    con.section("Export Options")
+    print()
+    con.dim("Download report definitions as Excel alongside migration?")
+    print()
+    con.menu_option("y", "Yes — run Export agent in parallel")
+    con.menu_option("n", "No  — migration only")
+    print()
     run_export_choice = ""
     while run_export_choice not in ("y", "n"):
         run_export_choice = clean_input(
-            input("  Run Export agent? [y/n]: ")
+            con.styled_input("Run Export agent? [y/n]: ")
         ).lower()
         if run_export_choice not in ("y", "n"):
-            print("  Please enter 'y' or 'n'.")
+            con.warn("Please enter 'y' or 'n'.")
 
     return industry, reports, run_export_choice == "y"
 
@@ -164,9 +181,7 @@ async def _run_agent_task(
     one agent never cancels the other.
     """
     start = time.perf_counter()
-    print(f"\n{'─' * 50}")
-    print(f"  [{agent_name}] STARTED")
-    print(f"{'─' * 50}\n")
+    con.agent_start(agent_name, len(config["steps"]))
 
     try:
         exit_code, error = await run_config_async(
@@ -174,8 +189,8 @@ async def _run_agent_task(
         )
     except Exception as exc:  # noqa: BLE001
         elapsed = time.perf_counter() - start
-        print(f"\n[{agent_name}] FATAL ERROR after {elapsed:.1f}s: {exc}",
-              file=sys.stderr)
+        con.agent_done(agent_name, elapsed, ok=False)
+        con.fail(f"FATAL ERROR after {elapsed:.1f}s: {exc}")
         return {
             "agent": agent_name,
             "exit_code": 1,
@@ -184,8 +199,7 @@ async def _run_agent_task(
         }
 
     elapsed = time.perf_counter() - start
-    status = "✓ SUCCESS" if exit_code == 0 else "✗ FAILED"
-    print(f"\n[{agent_name}] {status} ({elapsed:.1f}s)")
+    con.agent_done(agent_name, elapsed, ok=(exit_code == 0))
     return {
         "agent": agent_name,
         "exit_code": exit_code,
@@ -203,26 +217,42 @@ async def async_main() -> int:
     industry, reports, run_export = prompt_inputs()
 
     if not os.environ.get("WD_USER"):
-        os.environ["WD_USER"] = input("Workday username: ").strip()
+        print()
+        os.environ["WD_USER"] = clean_input(con.styled_input("Workday username: "))
     if not os.environ.get("WD_PASS"):
-        os.environ["WD_PASS"] = getpass.getpass("Workday password (hidden): ")
+        os.environ["WD_PASS"] = getpass.getpass(
+            f"  {con.C.B_CYAN}{con.SYM_ARROW}{con.C.RESET} {con.C.BOLD}Workday password (hidden): {con.C.RESET}"
+        )
 
     package_name = f"{industry}_Config_Package"
     mode = "Migration + Export" if run_export else "Migration only"
-    print(f"\n  Mode                : {mode}")
-    print(f"  Configuration Package : {package_name}")
-    print(f"  Reports ({len(reports)})          : {', '.join(reports)}")
+
+    # ── Summary ───────────────────────────────────────────────────────────
+    print()
+    con.section("Launch Summary")
+    print()
+    con.info("Mode", mode)
+    con.info("Config Package", package_name)
+    con.info("Reports", f"{len(reports)} selected")
+    for r in reports:
+        con.bullet(r)
 
     # ── 2. Build configs ──────────────────────────────────────────────────
     migration_config = build_migration_config(industry, reports)
-    print(f"\n  Migration steps : {len(migration_config['steps'])}")
+    print()
+    con.info("Migration steps", str(len(migration_config['steps'])))
 
     export_config = None
     if run_export:
         export_config = build_export_config(reports)
-        print(f"  Export steps    : {len(export_config['steps'])}")
+        con.info("Export steps", str(len(export_config['steps'])))
 
-    print(f"\n  Launching {'BOTH agents in parallel' if run_export else 'Migration agent'}…\n")
+    print()
+    if run_export:
+        con.success("Launching BOTH agents in parallel …")
+    else:
+        con.success("Launching Migration agent …")
+    print()
 
     # ── 3. Launch browser + context(s) ────────────────────────────────────
     async with async_playwright() as p:
@@ -260,24 +290,19 @@ async def async_main() -> int:
         await browser.close()
 
     # ── 6. Report results ─────────────────────────────────────────────────
-    print(f"\n{'═' * 60}")
-    print("  FINAL RESULTS")
-    print(f"{'═' * 60}")
+    con.results_header()
 
     all_ok = True
     for r in results:
-        status = "✓ SUCCESS" if r["exit_code"] == 0 else "✗ FAILED"
-        print(f"  [{r['agent']:>9}]  {status}  ({r['elapsed']:.1f}s)")
-        if r["error"]:
-            print(f"              Error : {r['error'][:120]}")
-            print(f"              Screenshot : error-{r['agent']}.png")
-        if r["exit_code"] != 0:
+        ok = r["exit_code"] == 0
+        con.results_row(r["agent"], ok, r["elapsed"], r.get("error"))
+        if not ok:
             all_ok = False
 
+    extra = ""
     if run_export:
-        print(f"\n  Excel downloads saved to: exported_reports/")
-
-    print(f"{'═' * 60}\n")
+        extra = "Excel downloads → exported_reports/"
+    con.results_footer(extra)
 
     # ── Pop-up summary ────────────────────────────────────────────────────
     agents_label = "Migration + Export" if run_export else "Migration"

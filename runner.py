@@ -22,6 +22,8 @@ from typing import Any
 
 from playwright.sync_api import Page, TimeoutError as PWTimeoutError, sync_playwright
 
+import console as con
+
 
 class StepError(Exception):
     """Raised when a single step fails so the runner can report it cleanly."""
@@ -333,7 +335,7 @@ def run_step(state: dict[str, Any], context: Any, step: dict[str, Any], index: i
             except Exception:  # noqa: BLE001
                 pass
             state["page"] = new_page
-            print(f"  [{index}] {label}: opened new tab -> switched to {new_page.url[:70]!r}")
+            con.step_log("agent", index, label, f"opened new tab → {new_page.url[:70]}")
             return
         handler = STEP_HANDLERS.get(action)
         if handler is None:
@@ -344,22 +346,22 @@ def run_step(state: dict[str, Any], context: Any, step: dict[str, Any], index: i
         result = handler(page, step)
     except KeyError as exc:
         if step.get("optional"):
-            print(f"  [{index}] {label}: skipped (optional)")
+            con.step_skip("agent", index, label, "optional")
             return
         raise StepError(f"step {index} ({label}): missing required field {exc}") from exc
     except PWTimeoutError as exc:
         # Optional steps (e.g. dismissing a dialog that may not appear) are allowed to fail.
         if step.get("optional"):
-            print(f"  [{index}] {label}: skipped (optional, not found)")
+            con.step_skip("agent", index, label, "optional, not found")
             return
         raise StepError(f"step {index} ({label}): timed out — {exc}") from exc
     except Exception as exc:  # noqa: BLE001
         # e.g. page navigated/closed during an optional post-redirect screenshot.
         if step.get("optional"):
-            print(f"  [{index}] {label}: skipped (optional, error: {str(exc)[:60]})")
+            con.step_skip("agent", index, label, f"optional, error: {str(exc)[:60]}")
             return
         raise
-    print(f"  [{index}] {label}: {result}")
+    con.step_log("agent", index, label, result)
 
 
 def load_config(path: Path) -> dict[str, Any]:
@@ -393,7 +395,7 @@ def run_config(
     steps = config["steps"]
 
     where = f"{browser_name}" + (f" (channel={channel})" if channel else "")
-    print(f"Launching {where} (headless={headless}) with {len(steps)} step(s)...")
+    con.success(f"Launching {where} (headless={headless}) with {len(steps)} step(s)…")
 
     error_message: str | None = None
     with sync_playwright() as p:
@@ -409,16 +411,16 @@ def run_config(
         try:
             for i, step in enumerate(steps, start=1):
                 run_step(state, context, step, i)
-            print("All steps completed successfully.")
+            con.success("All steps completed successfully.")
             exit_code = 0
         except StepError as exc:
             error_message = str(exc)
-            print(f"\nERROR: {exc}", file=sys.stderr)
+            con.fail(f"ERROR: {exc}")
             try:
                 os.makedirs("defects", exist_ok=True)
                 screenshot_path = os.path.join("defects", "error.png")
                 state["page"].screenshot(path=screenshot_path, full_page=True)
-                print(f"Saved failure screenshot to {screenshot_path}", file=sys.stderr)
+                con.dim(f"Saved failure screenshot to {screenshot_path}")
             except Exception:  # noqa: BLE001 - best-effort screenshot
                 pass
             exit_code = 1
@@ -732,10 +734,7 @@ async def run_step_async(
             except Exception:  # noqa: BLE001
                 pass
             state["page"] = new_page
-            print(
-                f"{prefix} {label}: opened new tab -> "
-                f"switched to {new_page.url[:70]!r}"
-            )
+            con.step_log(agent_name, index, label, f"opened new tab → {new_page.url[:70]}")
             return
 
         handler = ASYNC_STEP_HANDLERS.get(action)
@@ -747,27 +746,24 @@ async def run_step_async(
         result = await handler(page, step)
     except KeyError as exc:
         if step.get("optional"):
-            print(f"{prefix} {label}: skipped (optional)")
+            con.step_skip(agent_name, index, label, "optional")
             return
         raise StepError(
             f"step {index} ({label}): missing required field {exc}"
         ) from exc
     except (PWTimeoutError, AsyncPWTimeoutError) as exc:
         if step.get("optional"):
-            print(f"{prefix} {label}: skipped (optional, not found)")
+            con.step_skip(agent_name, index, label, "optional, not found")
             return
         raise StepError(
             f"step {index} ({label}): timed out — {exc}"
         ) from exc
     except Exception as exc:  # noqa: BLE001
         if step.get("optional"):
-            print(
-                f"{prefix} {label}: skipped "
-                f"(optional, error: {str(exc)[:60]})"
-            )
+            con.step_skip(agent_name, index, label, f"optional, error: {str(exc)[:60]}")
             return
         raise
-    print(f"{prefix} {label}: {result}")
+    con.step_log(agent_name, index, label, result)
 
 
 async def run_config_async(
@@ -786,7 +782,7 @@ async def run_config_async(
     Returns ``(exit_code, error_message)``.  ``exit_code`` 0 means success.
     """
     steps = config["steps"]
-    print(f"[{agent_name}] Running {len(steps)} step(s)...")
+    con.agent_start(agent_name, len(steps))
 
     error_message: str | None = None
     page = await context.new_page()
@@ -795,21 +791,18 @@ async def run_config_async(
     try:
         for i, step in enumerate(steps, start=1):
             await run_step_async(state, context, step, i, agent_name)
-        print(f"[{agent_name}] ✓ All steps completed successfully.")
+        con.success(f"[{agent_name}] All {len(steps)} steps completed successfully.")
         exit_code = 0
     except StepError as exc:
         error_message = str(exc)
-        print(f"\n[{agent_name}] ERROR: {exc}", file=sys.stderr)
+        con.fail(f"[{agent_name}] ERROR: {exc}")
         try:
             os.makedirs("defects", exist_ok=True)
             screenshot_path = os.path.join("defects", f"error-{agent_name}.png")
             await state["page"].screenshot(
                 path=screenshot_path, full_page=True,
             )
-            print(
-                f"[{agent_name}] Saved failure screenshot to {screenshot_path}",
-                file=sys.stderr,
-            )
+            con.dim(f"[{agent_name}] Saved failure screenshot to {screenshot_path}")
         except Exception:  # noqa: BLE001
             pass
         exit_code = 1
