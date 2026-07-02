@@ -143,7 +143,6 @@ def _print_env_status(created_new: bool, env_path: str) -> None:
 
     con.section("Environment Configuration")
     print()
-    con.info(".env location", env_path)
     if api_key:
         con.info("OPENAI_API_KEY", f"{con.C.B_GREEN}[SET]{con.C.RESET}")
     else:
@@ -170,14 +169,15 @@ def ensure_playwright_installed() -> None:
     import sys
     from playwright._impl._driver import compute_driver_executable, get_driver_env
 
-    # We check if it's already installed by looking for the browser path.
-    # But a simple way is just to run `install chromium` unconditionally. Playwright 
-    # handles the cache and skips download if already present.
     try:
         driver_executable = compute_driver_executable()
         env = get_driver_env()
-        con.dim("Ensuring Playwright Chromium is installed (this may take a minute on first run)…")
         # Run the node-based playwright install script bundled with playwright package
-        subprocess.run([driver_executable, "install", "chromium"], env=env, check=True)
-    except Exception as e:
-        print(f"Warning: Failed to ensure Playwright browsers are installed: {e}", file=sys.stderr)
+        # Silently — output is suppressed to keep the terminal clean.
+        subprocess.run(
+            [str(driver_executable), "install", "chromium"],
+            env=env, check=True,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+    except Exception:
+        pass  # Best-effort; the browser may already be installed
