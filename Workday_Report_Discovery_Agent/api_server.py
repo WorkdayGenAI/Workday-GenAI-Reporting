@@ -34,8 +34,29 @@ agent = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialise the agent on startup."""
+    """Initialise the agent on startup, with optional auto-sync."""
     global agent
+
+    # ── Auto-sync: refresh catalog from Workday RaaS if credentials are set ──
+    from . import config as _cfg
+    raas_url = getattr(_cfg, "WORKDAY_RAAS_URL", "") or ""
+    raas_user = getattr(_cfg, "WORKDAY_ISU_USERNAME", "") or ""
+    raas_pass = getattr(_cfg, "WORKDAY_ISU_PASSWORD", "") or ""
+
+    if raas_url.strip() and raas_user.strip() and raas_pass.strip():
+        logger.info("Auto-sync: Workday RaaS credentials detected — refreshing catalog…")
+        try:
+            success = sync_from_workday()
+            if success:
+                logger.info("Auto-sync: Catalog refreshed successfully.")
+            else:
+                logger.warning("Auto-sync: Sync returned failure — using existing catalog.")
+        except Exception as exc:
+            logger.warning("Auto-sync: Failed (%s) — using existing catalog.", exc)
+    else:
+        logger.info("Auto-sync: Skipped (WORKDAY_RAAS_URL / credentials not configured).")
+
+    # ── Initialise agent ────────────────────────────────────────────────────
     logger.info("Initializing ReportDiscoveryAgent...")
     agent = ReportDiscoveryAgent()
     logger.info("Agent initialized successfully.")

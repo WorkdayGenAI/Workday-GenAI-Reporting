@@ -22,6 +22,7 @@ import getpass
 import os
 import sys
 import time
+from datetime import datetime
 
 from playwright.async_api import async_playwright
 
@@ -102,30 +103,42 @@ def _prompt_manual_reports() -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# User input (collected once for all agents)
+# Startup menu — choose which agent(s) to run
 # ---------------------------------------------------------------------------
 
-def prompt_inputs() -> tuple[str, list[str], bool]:
-    """Prompt for industry, report names (via Discovery Web UI or manual), and export toggle.
+def _show_main_menu() -> str:
+    """Display the startup menu and return the user's choice.
 
-    Returns ``(industry, reports, run_export)``.
+    Returns:
+        "1" — Full workflow (Migration + optional Export)
+        "2" — Migration agent only
+        "3" — Export (Report Definition) agent only
     """
     con.banner(
         "Workday Report Migration Orchestrator",
         "Discovery  →  Migration  →  Export",
     )
 
-    # ── Industry ─────────────────────────────────────────────────────────
-    con.section("Configuration")
+    con.section("Select Workflow")
     print()
-    industry = ""
-    while not industry:
-        industry = clean_input(con.styled_input("Industry name: "))
-        if not industry:
-            con.warn("Industry name cannot be empty.")
+    con.menu_option("1", "Full Workflow  (Discovery → Migration → Export)", recommended=True)
+    con.menu_option("2", "Migration Agent only")
+    con.menu_option("3", "Export (Report Definition) Agent only")
+    print()
+    choice = ""
+    while choice not in ("1", "2", "3"):
+        choice = clean_input(con.styled_input("Choice [1/2/3]: "))
+        if choice not in ("1", "2", "3"):
+            con.warn("Please enter 1, 2, or 3.")
+    return choice
 
-    # ── Report selection ────────────────────────────────────────────────
-    print()
+
+# ---------------------------------------------------------------------------
+# Input prompts (adapted per workflow mode)
+# ---------------------------------------------------------------------------
+
+def _prompt_reports_selection() -> list[str]:
+    """Prompt for report selection via Discovery UI or manual entry."""
     con.section("Report Selection")
     print()
     con.dim("How would you like to select reports?")
@@ -146,25 +159,29 @@ def prompt_inputs() -> tuple[str, list[str], bool]:
             reports = _prompt_manual_reports()
     else:
         reports = _prompt_manual_reports()
+    return reports
 
-    # ── Export toggle ───────────────────────────────────────────────────
-    print()
-    con.section("Export Options")
-    print()
-    con.dim("Download report definitions as Excel alongside migration?")
-    print()
-    con.menu_option("y", "Yes — run Export agent in parallel")
-    con.menu_option("n", "No  — migration only")
-    print()
-    run_export_choice = ""
-    while run_export_choice not in ("y", "n"):
-        run_export_choice = clean_input(
-            con.styled_input("Run Export agent? [y/n]: ")
-        ).lower()
-        if run_export_choice not in ("y", "n"):
-            con.warn("Please enter 'y' or 'n'.")
 
-    return industry, reports, run_export_choice == "y"
+def _prompt_credentials() -> None:
+    """Prompt for Workday credentials if not already set via env."""
+    if not os.environ.get("WD_USER"):
+        print()
+        os.environ["WD_USER"] = clean_input(con.styled_input("Workday username: "))
+    if not os.environ.get("WD_PASS"):
+        os.environ["WD_PASS"] = getpass.getpass(
+            f"  {con.C.B_CYAN}{con.SYM_ARROW}{con.C.RESET} {con.C.BOLD}Workday password (hidden): {con.C.RESET}"
+        )
+
+
+def _generate_package_name(industry: str) -> str:
+    """Generate a unique Configuration Package name with today's date.
+
+    Format: {Industry}_Config_Package_{MM/DD/YYYY}
+    Example: Healthcare_Config_Package_07/02/2026
+    """
+    date_str = datetime.now().strftime("%m/%d/%Y")
+    return f"{industry}_Config_Package_{date_str}"
+
 
 # ---------------------------------------------------------------------------
 # Agent wrapper (independent error handling)
@@ -209,25 +226,48 @@ async def _run_agent_task(
 
 
 # ---------------------------------------------------------------------------
-# Main
+# Workflow: Full (Migration + optional Export)
 # ---------------------------------------------------------------------------
 
-async def async_main() -> int:
-    # ── 1. Collect input once ──────────────────────────────────────────────
-    industry, reports, run_export = prompt_inputs()
+async def _workflow_full() -> int:
+    """Full workflow: collect industry + reports + export toggle, run agents."""
+    # ── Configuration ─────────────────────────────────────────────────────
+    con.section("Configuration")
+    print()
+    industry = ""
+    while not industry:
+        industry = clean_input(con.styled_input("Industry name: "))
+        if not industry:
+            con.warn("Industry name cannot be empty.")
 
-    if not os.environ.get("WD_USER"):
-        print()
-        os.environ["WD_USER"] = clean_input(con.styled_input("Workday username: "))
-    if not os.environ.get("WD_PASS"):
-        os.environ["WD_PASS"] = getpass.getpass(
-            f"  {con.C.B_CYAN}{con.SYM_ARROW}{con.C.RESET} {con.C.BOLD}Workday password (hidden): {con.C.RESET}"
-        )
+    print()
+    reports = _prompt_reports_selection()
 
-    package_name = f"{industry}_Config_Package"
+    # ── Export toggle ─────────────────────────────────────────────────────
+    print()
+    con.section("Export Options")
+    print()
+    con.dim("Download report definitions as Excel alongside migration?")
+    print()
+    con.menu_option("y", "Yes — run Export agent in parallel")
+    con.menu_option("n", "No  — migration only")
+    print()
+    run_export_choice = ""
+    while run_export_choice not in ("y", "n"):
+        run_export_choice = clean_input(
+            con.styled_input("Run Export agent? [y/n]: ")
+        ).lower()
+        if run_export_choice not in ("y", "n"):
+            con.warn("Please enter 'y' or 'n'.")
+    run_export = run_export_choice == "y"
+
+    # ── Credentials ──────────────────────────────────────────────────────
+    _prompt_credentials()
+
+    package_name = _generate_package_name(industry)
     mode = "Migration + Export" if run_export else "Migration only"
 
-    # ── Summary ───────────────────────────────────────────────────────────
+    # ── Summary ──────────────────────────────────────────────────────────
     print()
     con.section("Launch Summary")
     print()
@@ -237,7 +277,7 @@ async def async_main() -> int:
     for r in reports:
         con.bullet(r)
 
-    # ── 2. Build configs ──────────────────────────────────────────────────
+    # ── Build configs ────────────────────────────────────────────────────
     migration_config = build_migration_config(industry, reports)
     print()
     con.info("Migration steps", str(len(migration_config['steps'])))
@@ -254,42 +294,136 @@ async def async_main() -> int:
         con.success("Launching Migration agent …")
     print()
 
-    # ── 3. Launch browser + context(s) ────────────────────────────────────
+    # ── Launch browser + context(s) ──────────────────────────────────────
     async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=False,
-            channel="chrome",
-        )
+        browser = await p.chromium.launch(headless=False, channel="chrome")
 
         migration_ctx = await browser.new_context(
-            viewport={"width": 1440, "height": 900},
-            accept_downloads=True,
+            viewport={"width": 1440, "height": 900}, accept_downloads=True,
         )
-
-        tasks = [
-            _run_agent_task(migration_ctx, migration_config, "Migration"),
-        ]
+        tasks = [_run_agent_task(migration_ctx, migration_config, "Migration")]
         contexts = [migration_ctx]
 
         if run_export and export_config is not None:
             export_ctx = await browser.new_context(
-                viewport={"width": 1440, "height": 900},
-                accept_downloads=True,
+                viewport={"width": 1440, "height": 900}, accept_downloads=True,
             )
-            tasks.append(
-                _run_agent_task(export_ctx, export_config, "Export"),
-            )
+            tasks.append(_run_agent_task(export_ctx, export_config, "Export"))
             contexts.append(export_ctx)
 
-        # ── 4. Run agent(s) concurrently ───────────────────────────────────
         results = await asyncio.gather(*tasks)
 
-        # ── 5. Cleanup ────────────────────────────────────────────────────
         for ctx in contexts:
             await ctx.close()
         await browser.close()
 
-    # ── 6. Report results ─────────────────────────────────────────────────
+    # ── Report results ───────────────────────────────────────────────────
+    return _print_results(results, run_export, package_name, reports)
+
+
+# ---------------------------------------------------------------------------
+# Workflow: Migration only
+# ---------------------------------------------------------------------------
+
+async def _workflow_migration_only() -> int:
+    """Run Migration agent only (no Export)."""
+    # ── Configuration ────────────────────────────────────────────────────
+    con.section("Configuration")
+    print()
+    industry = ""
+    while not industry:
+        industry = clean_input(con.styled_input("Industry name: "))
+        if not industry:
+            con.warn("Industry name cannot be empty.")
+
+    print()
+    reports = _prompt_reports_selection()
+    _prompt_credentials()
+
+    package_name = _generate_package_name(industry)
+
+    # ── Summary ──────────────────────────────────────────────────────────
+    print()
+    con.section("Launch Summary")
+    print()
+    con.info("Mode", "Migration only")
+    con.info("Config Package", package_name)
+    con.info("Reports", f"{len(reports)} selected")
+    for r in reports:
+        con.bullet(r)
+
+    migration_config = build_migration_config(industry, reports)
+    print()
+    con.info("Migration steps", str(len(migration_config['steps'])))
+    print()
+    con.success("Launching Migration agent …")
+    print()
+
+    # ── Launch ───────────────────────────────────────────────────────────
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False, channel="chrome")
+        ctx = await browser.new_context(
+            viewport={"width": 1440, "height": 900}, accept_downloads=True,
+        )
+        results = [await _run_agent_task(ctx, migration_config, "Migration")]
+        await ctx.close()
+        await browser.close()
+
+    return _print_results(results, False, package_name, reports)
+
+
+# ---------------------------------------------------------------------------
+# Workflow: Export only
+# ---------------------------------------------------------------------------
+
+async def _workflow_export_only() -> int:
+    """Run Export (Report Definition) agent only (no Migration)."""
+    # ── Configuration ────────────────────────────────────────────────────
+    con.section("Report Selection")
+    print()
+    reports = _prompt_reports_selection()
+    _prompt_credentials()
+
+    # ── Summary ──────────────────────────────────────────────────────────
+    print()
+    con.section("Launch Summary")
+    print()
+    con.info("Mode", "Export only (Report Definitions)")
+    con.info("Reports", f"{len(reports)} selected")
+    for r in reports:
+        con.bullet(r)
+
+    export_config = build_export_config(reports)
+    print()
+    con.info("Export steps", str(len(export_config['steps'])))
+    print()
+    con.success("Launching Export agent …")
+    print()
+
+    # ── Launch ───────────────────────────────────────────────────────────
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False, channel="chrome")
+        ctx = await browser.new_context(
+            viewport={"width": 1440, "height": 900}, accept_downloads=True,
+        )
+        results = [await _run_agent_task(ctx, export_config, "Export")]
+        await ctx.close()
+        await browser.close()
+
+    return _print_results(results, True, None, reports)
+
+
+# ---------------------------------------------------------------------------
+# Shared results display
+# ---------------------------------------------------------------------------
+
+def _print_results(
+    results: list[dict],
+    has_export: bool,
+    package_name: str | None,
+    reports: list[str],
+) -> int:
+    """Print the final results table and pop-up summary. Returns exit code."""
     con.results_header()
 
     all_ok = True
@@ -300,21 +434,22 @@ async def async_main() -> int:
             all_ok = False
 
     extra = ""
-    if run_export:
+    if has_export:
         extra = "Excel downloads → exported_reports/"
     con.results_footer(extra)
 
     # ── Pop-up summary ────────────────────────────────────────────────────
-    agents_label = "Migration + Export" if run_export else "Migration"
+    agent_names = [r["agent"] for r in results]
+    agents_label = " + ".join(agent_names)
+
     if all_ok:
-        msg = (
-            f"{agents_label} completed successfully.\n\n"
-            f"Configuration Package: {package_name}\n"
-            f"Reports: {len(reports)}\n"
-            f"  - " + "\n  - ".join(reports)
-        )
-        if run_export:
-            msg += f"\n\nExcel files saved to: exported_reports/"
+        msg = f"{agents_label} completed successfully.\n\n"
+        if package_name:
+            msg += f"Configuration Package: {package_name}\n"
+        msg += f"Reports: {len(reports)}\n"
+        msg += "  - " + "\n  - ".join(reports)
+        if has_export:
+            msg += "\n\nExcel files saved to: exported_reports/"
         popup("Orchestrator — All Done", msg)
     else:
         failed = [r["agent"] for r in results if r["exit_code"] != 0]
@@ -322,11 +457,27 @@ async def async_main() -> int:
         msg = f"Failed: {', '.join(failed)}\n"
         if succeeded:
             msg += f"Succeeded: {', '.join(succeeded)}\n"
-        msg += f"\nConfiguration Package: {package_name}\n"
+        if package_name:
+            msg += f"\nConfiguration Package: {package_name}\n"
         msg += "\nSee error-<agent>.png for failure screenshots."
         popup("Orchestrator — Partial Failure", msg, error=True)
 
     return 0 if all_ok else 1
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+async def async_main() -> int:
+    workflow = _show_main_menu()
+
+    if workflow == "1":
+        return await _workflow_full()
+    elif workflow == "2":
+        return await _workflow_migration_only()
+    else:
+        return await _workflow_export_only()
 
 
 def main() -> int:
