@@ -31,35 +31,59 @@ logger = logging.getLogger(__name__)
 
 agent = None
 
+# ── Background sync state ────────────────────────────────────────────────────
+# "idle"    → no sync needed or credentials not configured
+# "syncing" → background sync in progress
+# "done"    → sync finished successfully
+# "failed"  → sync failed (agent still works with bundled/existing catalog)
+_sync_status = "idle"
+
+
+def _background_sync() -> None:
+    """Run the Workday RaaS sync in a background thread, then reload the agent."""
+    global agent, _sync_status
+    try:
+        success = sync_from_workday()
+        if success:
+            logger.info("Auto-sync: Catalog refreshed — reloading agent.")
+            agent = ReportDiscoveryAgent()
+            _sync_status = "done"
+            logger.info("Auto-sync: Agent reloaded with %d reports.", len(agent.catalog))
+        else:
+            logger.warning("Auto-sync: Sync returned failure — keeping existing catalog.")
+            _sync_status = "failed"
+    except Exception as exc:
+        logger.warning("Auto-sync: Failed (%s) — keeping existing catalog.", exc)
+        _sync_status = "failed"
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialise the agent on startup, with optional auto-sync."""
-    global agent
+    """Initialise the agent immediately, then auto-sync in the background."""
+    global agent, _sync_status
 
-    # ── Auto-sync: refresh catalog from Workday RaaS if credentials are set ──
+    # ── Initialise agent right away with bundled/existing catalog ──────────
+    logger.info("Initializing ReportDiscoveryAgent with existing catalog...")
+    agent = ReportDiscoveryAgent()
+    logger.info("Agent initialized with %d reports.", len(agent.catalog))
+
+    # ── Kick off background sync if credentials are configured ────────────
     from . import config as _cfg
     raas_url = getattr(_cfg, "WORKDAY_RAAS_URL", "") or ""
     raas_user = getattr(_cfg, "WORKDAY_ISU_USERNAME", "") or ""
     raas_pass = getattr(_cfg, "WORKDAY_ISU_PASSWORD", "") or ""
 
     if raas_url.strip() and raas_user.strip() and raas_pass.strip():
-        logger.info("Auto-sync: Workday RaaS credentials detected — refreshing catalog…")
-        try:
-            success = sync_from_workday()
-            if success:
-                logger.info("Auto-sync: Catalog refreshed successfully.")
-            else:
-                logger.warning("Auto-sync: Sync returned failure — using existing catalog.")
-        except Exception as exc:
-            logger.warning("Auto-sync: Failed (%s) — using existing catalog.", exc)
+        _sync_status = "syncing"
+        logger.info("Auto-sync: Starting background sync from Workday RaaS...")
+        sync_thread = threading.Thread(
+            target=_background_sync, daemon=True, name="auto-sync"
+        )
+        sync_thread.start()
     else:
+        _sync_status = "idle"
         logger.info("Auto-sync: Skipped (WORKDAY_RAAS_URL / credentials not configured).")
 
-    # ── Initialise agent ────────────────────────────────────────────────────
-    logger.info("Initializing ReportDiscoveryAgent...")
-    agent = ReportDiscoveryAgent()
-    logger.info("Agent initialized successfully.")
     yield
 
 
@@ -139,6 +163,19 @@ def get_stats():
         "num_reports": num_reports,
         "llm_enabled": bool(config.OPENAI_API_KEY),
         "llm_model": config.MODEL_NAME
+    }
+
+
+@app.get("/api/sync-status")
+def get_sync_status():
+    """Return the current background auto-sync status.
+
+    Frontend polls this to show/hide the loading overlay.
+    """
+    num_reports = len(agent.catalog) if agent else 0
+    return {
+        "status": _sync_status,
+        "num_reports": num_reports,
     }
 
 

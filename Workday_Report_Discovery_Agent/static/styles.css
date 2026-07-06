@@ -697,3 +697,73 @@ input:checked + .slider:before { transform: translateX(20px); }
     border-radius: 8px;
     font-size: 0.9rem;
 }
+
+/* ── Auto-Sync Loading Overlay ─────────────────────────────────────────── */
+
+.sync-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 17, 21, 0.85);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    transition: opacity 0.5s ease;
+}
+.sync-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.sync-overlay-content {
+    text-align: center;
+    animation: syncFadeIn 0.6s ease-out;
+}
+
+.sync-spinner {
+    width: 56px;
+    height: 56px;
+    border: 4px solid rgba(99, 102, 241, 0.15);
+    border-top-color: var(--primary);
+    border-right-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+    margin: 0 auto 28px;
+    box-shadow: 0 0 24px rgba(99, 102, 241, 0.15);
+}
+
+.sync-overlay-content h2 {
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    letter-spacing: -0.01em;
+}
+
+.sync-overlay-content p {
+    color: var(--text-muted);
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-bottom: 4px;
+}
+
+.sync-subtext {
+    font-size: 0.85rem !important;
+    opacity: 0.6;
+    margin-top: 8px !important;
+}
+
+@keyframes syncFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

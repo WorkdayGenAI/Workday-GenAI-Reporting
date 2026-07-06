@@ -27,11 +27,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // State
     const selectedReports = new Set();
 
+    // Sync overlay
+    const syncOverlay = document.getElementById('sync-overlay');
+
     // Initialize Settings Labels
     llmSlider.addEventListener('input', (e) => llmVal.textContent = e.target.value);
 
-    // Initial Load: Get Stats
-    fetchStats();
+    // Initial Load: Check sync status (which also fetches stats when done)
+    checkSyncStatus();
 
     // Event Listeners
     searchBtn.addEventListener('click', handleSearch);
@@ -40,6 +43,33 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     syncBtn.addEventListener('click', handleSync);
     proceedBtn.addEventListener('click', handleProceed);
+
+    async function checkSyncStatus() {
+        try {
+            const res = await fetch('/api/sync-status');
+            const data = await res.json();
+
+            if (data.status === 'syncing') {
+                // Show overlay and poll every 2 seconds
+                syncOverlay.classList.remove('hidden');
+                setTimeout(checkSyncStatus, 2000);
+            } else {
+                // Sync done, failed, or idle — hide overlay and load stats
+                syncOverlay.classList.add('hidden');
+                fetchStats();
+
+                if (data.status === 'done') {
+                    showToast(`Catalog updated: ${data.num_reports.toLocaleString()} reports loaded`, 'success');
+                } else if (data.status === 'failed') {
+                    showToast('Auto-sync failed — using existing catalog', 'error');
+                }
+            }
+        } catch (error) {
+            // Server probably not ready yet — hide overlay, try stats normally
+            syncOverlay.classList.add('hidden');
+            fetchStats();
+        }
+    }
 
     async function fetchStats() {
         try {
