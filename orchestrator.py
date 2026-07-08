@@ -53,12 +53,12 @@ def _run_discovery() -> list[str]:
         from Workday_Report_Discovery_Agent.api_server import start_server, wait_for_confirmation
         import webbrowser
         
-        con.dim("Starting Report Discovery web server on http://127.0.0.1:8000 ...")
+        con.dim("Starting Report Discovery web server on http://127.0.0.1:8100 ...")
         # Start the FastAPI server in a background thread
-        start_server(port=8000)
+        start_server(port=8100)
         
         # Automatically open the browser
-        url = "http://127.0.0.1:8000"
+        url = "http://127.0.0.1:8100"
         con.dim(f"Opening browser: {url}")
         webbrowser.open(url)
         

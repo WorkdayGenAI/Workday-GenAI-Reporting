@@ -240,7 +240,7 @@ def wait_for_confirmation(timeout: float = 600) -> list[str]:
         return []
 
 
-def start_server(port: int = 8000) -> threading.Thread:
+def start_server(port: int = 8100) -> threading.Thread:
     """Start the FastAPI server in a background thread. Returns the thread."""
     import uvicorn
     import time
@@ -259,4 +259,4 @@ def start_server(port: int = 8000) -> threading.Thread:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("api_server:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("api_server:app", host="0.0.0.0", port=8100, reload=True)
