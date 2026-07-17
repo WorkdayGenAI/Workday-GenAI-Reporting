@@ -28,6 +28,7 @@ from playwright.async_api import async_playwright
 
 # Config builders from the existing agent scripts (pure-Python, no Playwright).
 from run_agent import build_config as build_migration_config
+from run_dashboard_agent import build_config as build_dashboard_config
 from run_export import build_config as build_export_config
 
 # Async step-execution engine (merged into runner.py).
@@ -111,8 +112,9 @@ def _show_main_menu() -> str:
 
     Returns:
         "1" — Full workflow (Migration + optional Export)
-        "2" — Migration agent only
-        "3" — Export (Report Definition) agent only
+        "2" — Report Migration agent only
+        "3" — Dashboard Migration agent only
+        "4" — Export (Report Definition) agent only
     """
     con.banner(
         "Workday Report Migration Orchestrator",
@@ -121,15 +123,16 @@ def _show_main_menu() -> str:
 
     con.section("Select Workflow")
     print()
-    con.menu_option("1", "Full Workflow  (Discovery → Migration → Export)", recommended=True)
-    con.menu_option("2", "Migration Agent only")
-    con.menu_option("3", "Export (Report Definition) Agent only")
+    con.menu_option("1", "Full Workflow  (Discovery → Report Migration → Export)", recommended=True)
+    con.menu_option("2", "Report Migration Agent only")
+    con.menu_option("3", "Dashboard Migration Agent only")
+    con.menu_option("4", "Export (Report Definition) Agent only")
     print()
     choice = ""
-    while choice not in ("1", "2", "3"):
-        choice = clean_input(con.styled_input("Choice [1/2/3]: "))
-        if choice not in ("1", "2", "3"):
-            con.warn("Please enter 1, 2, or 3.")
+    while choice not in ("1", "2", "3", "4"):
+        choice = clean_input(con.styled_input("Choice [1/2/3/4]: "))
+        if choice not in ("1", "2", "3", "4"):
+            con.warn("Please enter 1, 2, 3, or 4.")
     return choice
 
 
@@ -373,6 +376,88 @@ async def _workflow_migration_only() -> int:
 
 
 # ---------------------------------------------------------------------------
+# Workflow: Dashboard Migration only
+# ---------------------------------------------------------------------------
+
+def _prompt_manual_dashboards() -> list[str]:
+    """Prompt the user to manually type dashboard names."""
+    print()
+    con.dim("Enter the dashboard name(s) to migrate.")
+    con.dim("  • one per line, OR a single comma-separated line")
+    con.dim("  • press Enter on a blank line when done")
+    print()
+    dashboards: list[str] = []
+    while True:
+        line = clean_input(input(f"  {con.C.B_CYAN}dashboard▸{con.C.RESET} "))
+        if line == "":
+            if dashboards:
+                break
+            con.warn("Please enter at least one dashboard name.")
+            continue
+        line = line.strip("{}").strip()
+        parts = line.split(",") if "," in line else [line]
+        for part in parts:
+            name = clean_input(part.strip().strip('"').strip("'"))
+            if name:
+                dashboards.append(name)
+
+    # de-duplicate while preserving order
+    seen: set[str] = set()
+    dashboards = [d for d in dashboards if not (d in seen or seen.add(d))]
+    return dashboards
+
+
+async def _workflow_dashboard_only() -> int:
+    """Run Dashboard Migration agent only."""
+    # ── Configuration ────────────────────────────────────────────────────
+    con.section("Configuration")
+    print()
+    industry = ""
+    while not industry:
+        industry = clean_input(con.styled_input("Industry name: "))
+        if not industry:
+            con.warn("Industry name cannot be empty.")
+
+    print()
+    con.section("Dashboard Selection")
+    dashboards = _prompt_manual_dashboards()
+    _prompt_credentials()
+
+    package_name = _generate_package_name(industry).replace(
+        "_Config_Package_", "_Dashboard_Config_Package_"
+    )
+
+    # ── Summary ──────────────────────────────────────────────────────────
+    print()
+    con.section("Launch Summary")
+    print()
+    con.info("Mode", "Dashboard Migration only")
+    con.info("Config Package", package_name)
+    con.info("Dashboards", f"{len(dashboards)} selected")
+    for d in dashboards:
+        con.bullet(d)
+
+    dashboard_config = build_dashboard_config(industry, dashboards)
+    print()
+    con.info("Dashboard Migration steps", str(len(dashboard_config['steps'])))
+    print()
+    con.success("Launching Dashboard Migration agent …")
+    print()
+
+    # ── Launch ───────────────────────────────────────────────────────────
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False, channel="chrome")
+        ctx = await browser.new_context(
+            viewport={"width": 1440, "height": 900}, accept_downloads=True,
+        )
+        results = [await _run_agent_task(ctx, dashboard_config, "Dashboard Migration")]
+        await ctx.close()
+        await browser.close()
+
+    return _print_results(results, False, package_name, dashboards)
+
+
+# ---------------------------------------------------------------------------
 # Workflow: Export only
 # ---------------------------------------------------------------------------
 
@@ -476,6 +561,8 @@ async def async_main() -> int:
         return await _workflow_full()
     elif workflow == "2":
         return await _workflow_migration_only()
+    elif workflow == "3":
+        return await _workflow_dashboard_only()
     else:
         return await _workflow_export_only()
 

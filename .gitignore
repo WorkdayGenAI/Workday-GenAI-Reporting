@@ -9,3 +9,4 @@ defects/
 build/
 dist/
 *.spec
+Workday_Report_Discovery_Agent/data/All_Custom_Reports_with_Reference_ID.json
