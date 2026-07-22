@@ -173,12 +173,12 @@
                 itemsHint.textContent = 'Pre-populated from Discovery. Edit if needed.';
                 break;
             case 'report_migration':
-                titleEl.textContent = 'Report Migration — Configuration';
+                titleEl.textContent = 'Report Config Package — Configuration';
                 itemsLabel.textContent = 'Report Names';
                 itemsHint.textContent = 'Pre-populated from Discovery. Edit if needed.';
                 break;
             case 'dashboard_migration':
-                titleEl.textContent = 'Dashboard Migration — Configuration';
+                titleEl.textContent = 'Dashboard Config Package — Configuration';
                 itemsLabel.textContent = 'Dashboard Names';
                 itemsHint.textContent = 'Enter one dashboard name per line, or comma-separated.';
                 // Clear pre-populated reports for dashboard (different items)

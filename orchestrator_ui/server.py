@@ -394,7 +394,7 @@ async def _run_workflow_async(workflow: str, industry: str | None, items: list[s
             migration_config = build_migration_config(industry, items)
 
             run_state.push_event("agent_start", {
-                "agent": "Migration",
+                "agent": "Report Config Package",
                 "total_steps": len(migration_config["steps"]),
             })
             ctx = await browser.new_context(
@@ -402,12 +402,12 @@ async def _run_workflow_async(workflow: str, industry: str | None, items: list[s
             )
             start_t = time.perf_counter()
             exit_code, error = await run_config_async(
-                migration_config, ctx, agent_name="Migration",
+                migration_config, ctx, agent_name="Report Config Package",
                 on_step=_on_step, on_pause=_on_pause,
             )
             elapsed = time.perf_counter() - start_t
             results.append({
-                "agent": "Migration",
+                "agent": "Report Config Package",
                 "exit_code": exit_code,
                 "error": error,
                 "elapsed": round(elapsed, 1),
@@ -420,7 +420,7 @@ async def _run_workflow_async(workflow: str, industry: str | None, items: list[s
             dashboard_config = build_dashboard_config(industry, items)
 
             run_state.push_event("agent_start", {
-                "agent": "Dashboard Migration",
+                "agent": "Dashboard Config Package",
                 "total_steps": len(dashboard_config["steps"]),
             })
             ctx = await browser.new_context(
@@ -428,12 +428,12 @@ async def _run_workflow_async(workflow: str, industry: str | None, items: list[s
             )
             start_t = time.perf_counter()
             exit_code, error = await run_config_async(
-                dashboard_config, ctx, agent_name="Dashboard Migration",
+                dashboard_config, ctx, agent_name="Dashboard Config Package",
                 on_step=_on_step, on_pause=_on_pause,
             )
             elapsed = time.perf_counter() - start_t
             results.append({
-                "agent": "Dashboard Migration",
+                "agent": "Dashboard Config Package",
                 "exit_code": exit_code,
                 "error": error,
                 "elapsed": round(elapsed, 1),
