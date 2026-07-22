@@ -116,6 +116,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const data = await res.json();
             renderResults(data.results);
+
+            // Warn user if LLM fell back to BM25
+            if (data.llm_fallback) {
+                showToast("⚠ LLM rate limit hit — results are ranked by keyword match only. Try again in a few minutes for AI-scored results.", "warning");
+            }
         } catch (error) {
             console.error("Search Error:", error);
             showToast("Search failed to execute.", "error");
@@ -301,6 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toast.className = `toast ${type}`;
         toast.classList.remove('hidden');
 
+        const delay = type === 'warning' ? 6000 : 3000;
         setTimeout(() => {
             toast.style.transform = 'translateY(100px)';
             toast.style.opacity = '0';
@@ -309,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 toast.style.transform = '';
                 toast.style.opacity = '';
             }, 300);
-        }, 3000);
+        }, delay);
     }
 });
 

@@ -105,7 +105,7 @@ class LLMScorer:
         # ── Fallback if no client ──
         if self.client is None:
             logger.warning("No LLM client configured; returning BM25 order.")
-            return self._fallback(candidates, top_k)
+            return self._fallback(candidates, top_k, reason="LLM not configured")
 
         # Cap candidates sent to LLM to avoid token limit issues
         max_llm_candidates = min(len(candidates), 10)
@@ -113,46 +113,67 @@ class LLMScorer:
 
         messages = self._build_prompt(query, llm_candidates)
 
-        try:
-            # Don't use response_format — not all models support it
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=0.0,
-                max_tokens=8192,
-            )
-            content = response.choices[0].message.content
-            parsed = self._extract_json(content)
+        # Retry with backoff for rate limit (429) errors
+        max_retries = 3
+        retry_delays = [5, 15, 30]  # seconds
 
-            # Accept both {"results": [...]} and bare [...]
-            if isinstance(parsed, dict):
-                scored = parsed.get("results", parsed.get("candidates", []))
-            elif isinstance(parsed, list):
-                scored = parsed
-            else:
-                raise ValueError("Unexpected LLM response format")
+        for attempt in range(max_retries + 1):
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=0.0,
+                    max_tokens=8192,
+                )
+                content = response.choices[0].message.content
+                parsed = self._extract_json(content)
 
-            # Merge back original report metadata
-            name_to_cand = {
-                c["report"]["Report_Name"]: c for c in llm_candidates
-            }
-            enriched = []
-            for item in scored[:top_k]:
-                rname = item.get("report_name", "")
-                orig = name_to_cand.get(rname, {})
-                enriched.append({
-                    "report_name": rname,
-                    "score": item.get("score", 0),
-                    "band": item.get("band", "Low"),
-                    "explanation": item.get("explanation", item.get("why", "")),
-                    "report": orig.get("report", {}),
-                    "bm25_score": orig.get("bm25_score", 0),
-                })
-            return enriched
+                # Accept both {"results": [...]} and bare [...]
+                if isinstance(parsed, dict):
+                    scored = parsed.get("results", parsed.get("candidates", []))
+                elif isinstance(parsed, list):
+                    scored = parsed
+                else:
+                    raise ValueError("Unexpected LLM response format")
 
-        except Exception as exc:
-            logger.error("LLM scoring failed: %s — falling back to BM25 order.", exc)
-            return self._fallback(candidates, top_k)
+                # Merge back original report metadata
+                name_to_cand = {
+                    c["report"]["Report_Name"]: c for c in llm_candidates
+                }
+                enriched = []
+                for item in scored[:top_k]:
+                    rname = item.get("report_name", "")
+                    orig = name_to_cand.get(rname, {})
+                    enriched.append({
+                        "report_name": rname,
+                        "score": item.get("score", 0),
+                        "band": item.get("band", "Low"),
+                        "explanation": item.get("explanation", item.get("why", "")),
+                        "report": orig.get("report", {}),
+                        "bm25_score": orig.get("bm25_score", 0),
+                    })
+                return enriched
+
+            except Exception as exc:
+                exc_str = str(exc)
+                is_rate_limit = "429" in exc_str or "rate_limit" in exc_str.lower()
+
+                if is_rate_limit and attempt < max_retries:
+                    delay = retry_delays[attempt]
+                    logger.warning(
+                        "LLM rate limited (attempt %d/%d). Retrying in %ds...",
+                        attempt + 1, max_retries, delay,
+                    )
+                    import time
+                    time.sleep(delay)
+                    continue
+
+                reason = "Rate limit exceeded — retries exhausted" if is_rate_limit else str(exc)
+                logger.error("LLM scoring failed: %s — falling back to BM25 order.", exc)
+                return self._fallback(candidates, top_k, reason=reason)
+
+        # Should not reach here, but safety fallback
+        return self._fallback(candidates, top_k, reason="Unknown error")
 
     # ── extract JSON from LLM response (handles markdown-wrapped JSON) ──
     @staticmethod
@@ -193,8 +214,9 @@ class LLMScorer:
     # ── fallback ──
     @staticmethod
     def _fallback(
-        candidates: List[Dict[str, Any]], top_k: int
+        candidates: List[Dict[str, Any]], top_k: int, reason: str = ""
     ) -> List[Dict[str, Any]]:
+        explanation = f"LLM unavailable ({reason}) — ranked by BM25 keyword relevance only." if reason else "LLM unavailable — ranked by BM25 keyword relevance only."
         results = []
         for c in candidates[:top_k]:
             rpt = c["report"]
@@ -202,7 +224,7 @@ class LLMScorer:
                 "report_name": rpt.get("Report_Name", "Unknown"),
                 "score": round(c["bm25_score"], 2),
                 "band": "N/A",
-                "explanation": "LLM unavailable — ranked by BM25 keyword relevance only.",
+                "explanation": explanation,
                 "report": rpt,
                 "bm25_score": c["bm25_score"],
             })

@@ -472,6 +472,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 }
 .toast.success { border-left: 4px solid var(--high-band); }
 .toast.error { border-left: 4px solid var(--low-band); }
+.toast.warning { border-left: 4px solid var(--medium-band); }
 
 /* --- NEW SELECTION UI CSS --- */
 

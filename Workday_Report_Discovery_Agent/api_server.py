@@ -131,7 +131,16 @@ def search_reports(req: SearchRequest):
                 query=req.query,
                 top_n=req.llm_top_k
             )
-        return {"results": results}
+
+        # Detect if LLM fell back to BM25 (all bands will be "N/A")
+        llm_fallback = req.use_llm and all(r.get("band") == "N/A" for r in results) and len(results) > 0
+        fallback_reason = results[0].get("explanation", "") if llm_fallback else ""
+
+        return {
+            "results": results,
+            "llm_fallback": llm_fallback,
+            "fallback_reason": fallback_reason,
+        }
     except Exception as e:
         logger.error(f"Search failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
