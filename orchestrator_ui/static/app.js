@@ -161,6 +161,15 @@
         industryGroup.style.display = '';
         discoveryGroup.style.display = 'none';
 
+        // Reset Launch button (may still say "Launching…" from a previous run)
+        const btn = document.getElementById('btn-launch');
+        btn.disabled = false;
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Launch Agent';
+
+        // Clear stale hints
+        const userHint = document.getElementById('user-hint');
+        if (userHint) { userHint.textContent = ''; userHint.style.color = ''; }
+
         // Pre-populate report names from Discovery selection
         if (selectedReports.length > 0) {
             itemsTextarea.value = selectedReports.join('\n');
@@ -237,7 +246,7 @@
         };
 
         if ((currentWorkflow !== 'export') && !payload.industry) {
-            showToast('Industry name is required.', 'error');
+            showToast('Package name is required.', 'error');
             return;
         }
 
