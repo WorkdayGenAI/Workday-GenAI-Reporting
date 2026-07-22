@@ -57,8 +57,10 @@ class RunState:
         # Pause support
         self.pause_pending: dict | None = None   # {"title": ..., "message": ...}
         self.pause_resolved = threading.Event()
-        # Track workflow thread for cancellation
+        # Track workflow for cancellation
         self._workflow_thread: threading.Thread | None = None
+        self._workflow_loop: asyncio.AbstractEventLoop | None = None
+        self._browser = None  # Playwright browser instance
 
     def reset(self):
         with self._lock:
@@ -67,6 +69,8 @@ class RunState:
             self.cancel_requested = False
             self.pause_pending = None
             self.pause_resolved.clear()
+            self._browser = None
+            self._workflow_loop = None
 
     def push_event(self, event_type: str, data: dict):
         with self._lock:
@@ -287,7 +291,7 @@ async def resolve_pause(body: PauseResolve):
 
 @app.post("/api/cancel")
 async def cancel_workflow():
-    """Force-cancel the running workflow."""
+    """Force-cancel the running workflow by closing the Playwright browser."""
     if not run_state.running:
         raise HTTPException(status_code=400, detail="No workflow is running.")
 
@@ -295,13 +299,23 @@ async def cancel_workflow():
     # Unblock any paused step
     run_state.pause_resolved.set()
 
-    run_state.push_event("error_event", {"message": "Workflow cancelled by user."})
-    run_state.push_event("all_done", {
-        "results": [{"agent": "Cancelled", "exit_code": 1, "error": "Cancelled by user", "elapsed": 0}],
-        "package_name": None,
-    })
+    # Force-close the Playwright browser — this kills all running automation
+    browser = run_state._browser
+    loop = run_state._workflow_loop
+    if browser and loop and loop.is_running():
+        try:
+            future = asyncio.run_coroutine_threadsafe(browser.close(), loop)
+            future.result(timeout=10)  # Wait up to 10s for browser to close
+            logger.info("Playwright browser force-closed.")
+        except Exception as exc:
+            logger.warning("Failed to close browser: %s", exc)
+
+    # The workflow thread's exception handler + cancel_check will immediately terminate the loop.
+    # The thread will natively push agent_done and all_done events, so we do not push them here,
+    # ensuring the frontend receives the full stream of cleanup events.
+    run_state.push_event("error_event", {"message": "Workflow cancelled. Cleaning up..."})
     run_state.running = False
-    logger.info("Workflow cancelled by user.")
+    logger.info("Workflow cancellation requested by user.")
     return {"status": "cancelled"}
 
 
@@ -341,13 +355,17 @@ def _run_workflow_thread(workflow: str, industry: str | None, items: list[str], 
     """Execute the workflow in a new asyncio event loop (runs in a background thread)."""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+    run_state._workflow_loop = loop
     try:
         loop.run_until_complete(
             _run_workflow_async(workflow, industry, items, run_export_flag)
         )
     except Exception as exc:
-        logger.error("Workflow error: %s", exc, exc_info=True)
-        run_state.push_event("error_event", {"message": str(exc)})
+        if run_state.cancel_requested:
+            logger.info("Workflow thread terminated due to cancellation.")
+        else:
+            logger.error("Workflow error: %s", exc, exc_info=True)
+            run_state.push_event("error_event", {"message": str(exc)})
     finally:
         # Always send all_done so the SSE client can close cleanly
         if not run_state.has_all_done():
@@ -356,6 +374,8 @@ def _run_workflow_thread(workflow: str, industry: str | None, items: list[str], 
                 "package_name": None,
             })
         run_state.running = False
+        run_state._browser = None
+        run_state._workflow_loop = None
         loop.close()
 
 
@@ -373,6 +393,7 @@ async def _run_workflow_async(workflow: str, industry: str | None, items: list[s
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=False, channel="chrome")
+        run_state._browser = browser  # Store for cancel endpoint
 
         if workflow == "full":
             package_name = f"{industry}_Config_Package_{date_str}" if industry else None
@@ -384,6 +405,7 @@ async def _run_workflow_async(workflow: str, industry: str | None, items: list[s
                     exit_code, error = await run_config_async(
                         config, ctx, agent_name=name,
                         on_step=_on_step, on_pause=_on_pause,
+                        cancel_check=lambda: run_state.cancel_requested,
                     )
                 except Exception as exc:
                     exit_code, error = 1, str(exc)
@@ -455,6 +477,7 @@ async def _run_workflow_async(workflow: str, industry: str | None, items: list[s
             exit_code, error = await run_config_async(
                 migration_config, ctx, agent_name="Report Config Package",
                 on_step=_on_step, on_pause=_on_pause,
+                cancel_check=lambda: run_state.cancel_requested,
             )
             elapsed = time.perf_counter() - start_t
             results.append({
@@ -481,6 +504,7 @@ async def _run_workflow_async(workflow: str, industry: str | None, items: list[s
             exit_code, error = await run_config_async(
                 dashboard_config, ctx, agent_name="Dashboard Config Package",
                 on_step=_on_step, on_pause=_on_pause,
+                cancel_check=lambda: run_state.cancel_requested,
             )
             elapsed = time.perf_counter() - start_t
             results.append({
@@ -506,6 +530,7 @@ async def _run_workflow_async(workflow: str, industry: str | None, items: list[s
             exit_code, error = await run_config_async(
                 export_config, ctx, agent_name="Export",
                 on_step=_on_step, on_pause=_on_pause,
+                cancel_check=lambda: run_state.cancel_requested,
             )
             elapsed = time.perf_counter() - start_t
             results.append({

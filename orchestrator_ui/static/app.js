@@ -487,6 +487,16 @@
         const cancelBtn = document.getElementById('btn-cancel-workflow');
         if (cancelBtn) cancelBtn.classList.add('hidden');
 
+        // Stop any remaining timers and mark unfinished agents as failed/cancelled
+        Object.keys(agentTimers).forEach(agentName => {
+            const slug = slugify(agentName);
+            const badge = document.querySelector(`#agent-${slug} .agent-status-badge`);
+            if (badge && badge.textContent === 'Running') {
+                // If it's still running on the frontend when all_done arrives, mark it failed.
+                markAgentDone(agentName, 1, 0, 'Cancelled or interrupted');
+            }
+        });
+
         const allOk = results.every(r => r.exit_code === 0);
 
         banner.className = `results-banner ${allOk ? 'success' : 'failure'}`;

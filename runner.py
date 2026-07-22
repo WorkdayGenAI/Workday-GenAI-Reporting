@@ -781,10 +781,10 @@ async def run_step_async(
 async def run_config_async(
     config: dict[str, Any],
     context: Any,
-    *,
     agent_name: str = "agent",
     on_step: Any = None,
     on_pause: Any = None,
+    cancel_check: Any = None,
 ) -> tuple[int, str | None]:
     """Execute a config dict against a pre-created async BrowserContext.
 
@@ -815,6 +815,8 @@ async def run_config_async(
 
     try:
         for i, step in enumerate(steps, start=1):
+            if cancel_check and cancel_check():
+                raise StepError("Cancelled by user")
             # Inject callbacks into step dict for the pause handler
             if on_pause:
                 step["_on_pause"] = on_pause
