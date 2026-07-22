@@ -40,11 +40,15 @@
     // Discovery ← Back to Hero
     document.getElementById('back-to-hero-from-disc').addEventListener('click', () => {
         stopDiscoveryPolling();
+        // Unload Discovery iframe to free memory
+        document.getElementById('discovery-iframe').src = 'about:blank';
         showView('hero');
     });
 
     // Dashboard ← Back to Discovery
     document.getElementById('back-to-discovery').addEventListener('click', () => {
+        // Unload Discovery iframe to free memory
+        document.getElementById('discovery-iframe').src = 'about:blank';
         showView('discovery');
     });
 
@@ -324,6 +328,9 @@
         document.getElementById('agents-progress').innerHTML = '';
         document.getElementById('pause-banner').classList.add('hidden');
         document.getElementById('results-panel').classList.add('hidden');
+        // Show cancel button, hide it when done
+        const cancelBtn = document.getElementById('btn-cancel-workflow');
+        if (cancelBtn) { cancelBtn.classList.remove('hidden'); cancelBtn.disabled = false; }
         agentTimers = {};
         agentStepCounts = {};
     }
@@ -455,12 +462,30 @@
         }
     });
 
+    // ── Cancel workflow ────────────────────────────────────────────
+
+    document.getElementById('btn-cancel-workflow').addEventListener('click', async () => {
+        const cancelBtn = document.getElementById('btn-cancel-workflow');
+        cancelBtn.disabled = true;
+        cancelBtn.textContent = 'Cancelling…';
+        try {
+            await fetch('/api/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+            showToast('Workflow cancelled.', 'error');
+        } catch (e) {
+            showToast('Failed to cancel: ' + e.message, 'error');
+        }
+    });
+
     // ── Results ────────────────────────────────────────────────────
 
     function showResults(results, packageName) {
         const panel = document.getElementById('results-panel');
         const banner = document.getElementById('results-banner');
         const details = document.getElementById('results-details');
+
+        // Hide cancel button once results are shown
+        const cancelBtn = document.getElementById('btn-cancel-workflow');
+        if (cancelBtn) cancelBtn.classList.add('hidden');
 
         const allOk = results.every(r => r.exit_code === 0);
 
@@ -505,9 +530,11 @@
     }
 
     function escapeHtml(s) {
-        const div = document.createElement('div');
-        div.textContent = s;
-        return div.innerHTML;
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -525,7 +552,7 @@
             h = canvas.height = canvas.offsetHeight;
         }
 
-        mouse = { x: w / 2, y: h / 2 };
+        mouse = { x: 0, y: 0 };
         document.getElementById('view-hero').addEventListener('mousemove', (e) => {
             mouse.x = e.clientX;
             mouse.y = e.clientY;

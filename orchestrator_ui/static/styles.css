@@ -747,6 +747,36 @@ input::placeholder, textarea::placeholder {
 }
 .pause-resume-btn:hover { background: #fbbf24; }
 
+/* Cancel workflow */
+.progress-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 16px;
+}
+.cancel-workflow-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.cancel-workflow-btn:hover {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: rgba(239, 68, 68, 0.5);
+}
+.cancel-workflow-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.cancel-workflow-btn.hidden { display: none; }
+
 /* Results panel */
 .results-panel {
     margin-top: 32px;

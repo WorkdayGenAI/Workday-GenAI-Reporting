@@ -6,7 +6,6 @@ import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -91,13 +90,8 @@ async def lifespan(app: FastAPI):
 # Initialize FastAPI app
 app = FastAPI(title="Report Discovery Agent API", lifespan=lifespan)
 
-# Allow cross-origin requests (needed when embedded in orchestrator iframe)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# No CORS middleware needed — Discovery UI is served at the same origin
+# when embedded in the orchestrator (/discovery/).
 
 
 # ---------------------------------------------------------------------------

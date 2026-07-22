@@ -50,17 +50,21 @@ class RunState:
 
     def __init__(self):
         self.running = False
+        self.cancel_requested = False
         self.events: list[dict] = []
         self._lock = threading.Lock()
         self._new_event = asyncio.Event()
         # Pause support
         self.pause_pending: dict | None = None   # {"title": ..., "message": ...}
         self.pause_resolved = threading.Event()
+        # Track workflow thread for cancellation
+        self._workflow_thread: threading.Thread | None = None
 
     def reset(self):
         with self._lock:
             self.events.clear()
             self.running = False
+            self.cancel_requested = False
             self.pause_pending = None
             self.pause_resolved.clear()
 
@@ -76,6 +80,11 @@ class RunState:
     def get_events_since(self, cursor: int) -> list[dict]:
         with self._lock:
             return self.events[cursor:]
+
+    def has_all_done(self) -> bool:
+        """Check if all_done event was already pushed."""
+        with self._lock:
+            return any(e["type"] == "all_done" for e in self.events)
 
 
 run_state = RunState()
@@ -236,14 +245,21 @@ async def launch_workflow(req: LaunchRequest):
     if run_state.running:
         raise HTTPException(status_code=409, detail="A workflow is already running.")
 
+    # Validate credentials — they're required for all workflows
+    wd_user = req.wd_user or os.environ.get("WD_USER", "").strip()
+    wd_pass = req.wd_pass or os.environ.get("WD_PASS", "")
+    if not wd_user or not wd_pass:
+        raise HTTPException(
+            status_code=400,
+            detail="Workday credentials are required. Please enter your username and password.",
+        )
+
     run_state.reset()
     run_state.running = True
 
     # Set credentials in env (in-memory only, never persisted)
-    if req.wd_user:
-        os.environ["WD_USER"] = req.wd_user
-    if req.wd_pass:
-        os.environ["WD_PASS"] = req.wd_pass
+    os.environ["WD_USER"] = wd_user
+    os.environ["WD_PASS"] = wd_pass
 
     # Launch in background thread (Playwright needs its own event loop)
     thread = threading.Thread(
@@ -252,6 +268,7 @@ async def launch_workflow(req: LaunchRequest):
         daemon=True,
         name="workflow-runner",
     )
+    run_state._workflow_thread = thread
     thread.start()
 
     return {"status": "started", "workflow": req.workflow}
@@ -266,6 +283,34 @@ async def resolve_pause(body: PauseResolve):
         run_state.push_event("pause_resolved", {"message": "Resumed"})
         return {"status": "resumed"}
     raise HTTPException(status_code=400, detail="No pause pending")
+
+
+@app.post("/api/cancel")
+async def cancel_workflow():
+    """Force-cancel the running workflow."""
+    if not run_state.running:
+        raise HTTPException(status_code=400, detail="No workflow is running.")
+
+    run_state.cancel_requested = True
+    # Unblock any paused step
+    run_state.pause_resolved.set()
+
+    run_state.push_event("error_event", {"message": "Workflow cancelled by user."})
+    run_state.push_event("all_done", {
+        "results": [{"agent": "Cancelled", "exit_code": 1, "error": "Cancelled by user", "elapsed": 0}],
+        "package_name": None,
+    })
+    run_state.running = False
+    logger.info("Workflow cancelled by user.")
+    return {"status": "cancelled"}
+
+
+@app.post("/api/force-reset")
+async def force_reset():
+    """Force-reset the run state (escape hatch if a run gets stuck)."""
+    run_state.reset()
+    logger.info("Run state force-reset by user.")
+    return {"status": "reset"}
 
 
 # ---------------------------------------------------------------------------
@@ -302,8 +347,14 @@ def _run_workflow_thread(workflow: str, industry: str | None, items: list[str], 
         )
     except Exception as exc:
         logger.error("Workflow error: %s", exc, exc_info=True)
-        run_state.push_event("error", {"message": str(exc)})
+        run_state.push_event("error_event", {"message": str(exc)})
     finally:
+        # Always send all_done so the SSE client can close cleanly
+        if not run_state.has_all_done():
+            run_state.push_event("all_done", {
+                "results": [{"agent": "System", "exit_code": 1, "error": "Workflow terminated unexpectedly.", "elapsed": 0}],
+                "package_name": None,
+            })
         run_state.running = False
         loop.close()
 
@@ -350,13 +401,13 @@ async def _run_workflow_async(workflow: str, industry: str | None, items: list[s
 
             # Migration agent (always)
             run_state.push_event("agent_start", {
-                "agent": "Migration",
+                "agent": "Report Config Package",
                 "total_steps": len(migration_config["steps"]),
             })
             ctx_migration = await browser.new_context(
                 viewport={"width": 1440, "height": 900}, accept_downloads=True,
             )
-            coros.append(_run_single_agent("Migration", migration_config, ctx_migration))
+            coros.append(_run_single_agent("Report Config Package", migration_config, ctx_migration))
 
             # Export agent (if toggled on) — runs in parallel
             ctx_export = None

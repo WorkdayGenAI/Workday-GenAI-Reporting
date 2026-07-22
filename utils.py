@@ -84,10 +84,10 @@ _ENV_TEMPLATE = """\
 # =============================================================================
 
 # ── LLM Configuration (for AI-powered report discovery) ──
-# Get your API key from https://platform.openai.com/api-keys
+# Default: Groq Cloud with LLaMA 3.3 70B. Get your key from https://console.groq.com/
 OPENAI_API_KEY=
-OPENAI_BASE_URL=
-MODEL_NAME=gpt-4o
+OPENAI_BASE_URL=https://api.groq.com/openai/v1
+MODEL_NAME=llama-3.3-70b-versatile
 
 # ── Workday Tenant Credentials (for catalog sync from Workday RaaS) ──
 WORKDAY_RAAS_URL=

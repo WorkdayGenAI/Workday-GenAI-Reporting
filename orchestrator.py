@@ -123,10 +123,10 @@ def _show_main_menu() -> str:
 
     con.section("Select Workflow")
     print()
-    con.menu_option("1", "Full Workflow  (Discovery → Report Migration → Export)", recommended=True)
-    con.menu_option("2", "Report Migration Agent only")
-    con.menu_option("3", "Dashboard Migration Agent only")
-    con.menu_option("4", "Export (Report Definition) Agent only")
+    con.menu_option("1", "Full Workflow  (Discovery → Report Config Package → Export)", recommended=True)
+    con.menu_option("2", "Report Config Package Agent only")
+    con.menu_option("3", "Dashboard Config Package Agent only")
+    con.menu_option("4", "Export Definitions Agent only")
     print()
     choice = ""
     while choice not in ("1", "2", "3", "4"):
@@ -304,7 +304,7 @@ async def _workflow_full() -> int:
         migration_ctx = await browser.new_context(
             viewport={"width": 1440, "height": 900}, accept_downloads=True,
         )
-        tasks = [_run_agent_task(migration_ctx, migration_config, "Migration")]
+        tasks = [_run_agent_task(migration_ctx, migration_config, "Report Config Package")]
         contexts = [migration_ctx]
 
         if run_export and export_config is not None:
@@ -368,7 +368,7 @@ async def _workflow_migration_only() -> int:
         ctx = await browser.new_context(
             viewport={"width": 1440, "height": 900}, accept_downloads=True,
         )
-        results = [await _run_agent_task(ctx, migration_config, "Migration")]
+        results = [await _run_agent_task(ctx, migration_config, "Report Config Package")]
         await ctx.close()
         await browser.close()
 
@@ -450,7 +450,7 @@ async def _workflow_dashboard_only() -> int:
         ctx = await browser.new_context(
             viewport={"width": 1440, "height": 900}, accept_downloads=True,
         )
-        results = [await _run_agent_task(ctx, dashboard_config, "Dashboard Migration")]
+        results = [await _run_agent_task(ctx, dashboard_config, "Dashboard Config Package")]
         await ctx.close()
         await browser.close()
 
