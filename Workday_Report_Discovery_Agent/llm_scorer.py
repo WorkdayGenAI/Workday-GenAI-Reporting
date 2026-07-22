@@ -108,7 +108,7 @@ class LLMScorer:
             return self._fallback(candidates, top_k)
 
         # Cap candidates sent to LLM to avoid token limit issues
-        max_llm_candidates = min(len(candidates), 20)
+        max_llm_candidates = min(len(candidates), 10)
         llm_candidates = candidates[:max_llm_candidates]
 
         messages = self._build_prompt(query, llm_candidates)
@@ -119,6 +119,7 @@ class LLMScorer:
                 model=self.model,
                 messages=messages,
                 temperature=0.0,
+                max_tokens=8192,
             )
             content = response.choices[0].message.content
             parsed = self._extract_json(content)
@@ -156,24 +157,37 @@ class LLMScorer:
     # ── extract JSON from LLM response (handles markdown-wrapped JSON) ──
     @staticmethod
     def _extract_json(content: str) -> Any:
-        """Try direct JSON parse, then extract from markdown code fences."""
+        """Try direct JSON parse, extract from markdown code fences, or slice bracket bounds."""
         import re
         content = content.strip()
+
+        # 1. Strip <think>...</think> reasoning blocks
+        content = re.sub(r"<think>[\s\S]*?</think>", "", content).strip()
+
+        # 2. Extract content inside ```json ... ``` or ``` ... ``` code blocks
+        fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)(?:```|$)", content)
+        if fence_match and fence_match.group(1).strip():
+            candidate_str = fence_match.group(1).strip()
+            try:
+                return json.loads(candidate_str)
+            except json.JSONDecodeError:
+                pass
+
+        # 3. Direct JSON parse
         try:
             return json.loads(content)
         except json.JSONDecodeError:
             pass
-        # Try extracting from ```json ... ``` blocks
-        match = re.search(r"```(?:json)?\s*(\{[\s\S]*?\}|\[[\s\S]*?\])\s*```", content)
-        if match:
-            return json.loads(match.group(1))
-        # Try finding first { or [ to end of content
-        for i, ch in enumerate(content):
-            if ch in ('{', '['):
-                try:
-                    return json.loads(content[i:])
-                except json.JSONDecodeError:
-                    continue
+
+        # 4. Bracket slicing fallback (first { or [ to last } or ])
+        first_bracket = min([i for i in [content.find('{'), content.find('[')] if i != -1], default=-1)
+        last_bracket = max(content.rfind('}'), content.rfind(']'))
+        if first_bracket != -1 and last_bracket > first_bracket:
+            try:
+                return json.loads(content[first_bracket:last_bracket + 1])
+            except json.JSONDecodeError:
+                pass
+
         raise ValueError(f"Could not extract JSON from LLM response: {content[:200]}")
 
     # ── fallback ──

@@ -114,7 +114,7 @@ The `.env` file controls core behavior:
 |---|---|---|
 | `OPENAI_API_KEY` | — | Your Groq API key |
 | `OPENAI_BASE_URL`| `https://api.groq.com/openai/v1` | Groq API URL |
-| `MODEL_NAME` | `meta-llama/llama-4-scout-17b-16e-instruct` | LLM for scoring |
+| `MODEL_NAME` | `llama-3.3-70b-versatile` | LLM for scoring |
 | `BM25_TOP_N` | `30` | Fallback candidates passed to LLM |
 | `WORKDAY_RAAS_URL` | — | URL to JSON Workday Report export |
 | `WORKDAY_ISU_USERNAME`| — | Integration System User name |
@@ -145,7 +145,7 @@ This project includes a [vercel.json](file:///c:/Users/rishabh.saklani/OneDrive%
 4. Add the required **Environment Variables** in the Vercel dashboard:
    - `OPENAI_API_KEY`: `<Your Groq/OpenAI API Key>`
    - `OPENAI_BASE_URL`: `https://api.groq.com/openai/v1`
-   - `MODEL_NAME`: `meta-llama/llama-4-scout-17b-16e-instruct`
+   - `MODEL_NAME`: `llama-3.3-70b-versatile`
    - `WORKDAY_RAAS_URL`: `<Your Workday RaaS URL>`
    - `WORKDAY_ISU_USERNAME`: `<ISU Username>`
    - `WORKDAY_ISU_PASSWORD`: `<ISU Password>`

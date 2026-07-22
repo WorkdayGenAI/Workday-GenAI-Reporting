@@ -555,6 +555,7 @@ def _print_results(
 # ---------------------------------------------------------------------------
 
 async def async_main() -> int:
+    """CLI entry point (used with --cli flag or as fallback)."""
     workflow = _show_main_menu()
 
     if workflow == "1":
@@ -571,7 +572,24 @@ def main() -> int:
     from utils import ensure_env_file, ensure_playwright_installed
     ensure_env_file()
     ensure_playwright_installed()
-    return asyncio.run(async_main())
+
+    # Check for --cli flag to use the old terminal menu
+    if "--cli" in sys.argv:
+        con.dim("Starting in CLI mode…")
+        return asyncio.run(async_main())
+
+    # Default: launch the web UI
+    con.section("Web UI")
+    print()
+    con.info("Mode", "Web Dashboard")
+    con.dim("Starting Orchestrator Web UI on http://127.0.0.1:8050 …")
+    con.dim("The browser will open automatically.")
+    con.dim("Use --cli flag to use the terminal menu instead.")
+    print()
+
+    from orchestrator_ui.server import start_orchestrator_server
+    start_orchestrator_server(port=8050)
+    return 0
 
 
 if __name__ == "__main__":

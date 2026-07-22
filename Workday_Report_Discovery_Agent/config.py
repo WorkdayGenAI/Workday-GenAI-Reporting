@@ -13,7 +13,7 @@ if getattr(sys, 'frozen', False):
     _user_dir = os.path.dirname(sys.executable)
     _bundled_dir = os.path.join(sys._MEIPASS, "Workday_Report_Discovery_Agent")
 else:
-    _user_dir = os.path.dirname(__file__)
+    _user_dir = os.path.dirname(os.path.dirname(__file__))
     _bundled_dir = os.path.dirname(__file__)
 
 _env_path = os.path.join(_user_dir, ".env")
@@ -22,7 +22,7 @@ load_dotenv(dotenv_path=_env_path)
 # ── LLM Configuration ──
 OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 OPENAI_BASE_URL: str = os.getenv("OPENAI_BASE_URL", "")
-MODEL_NAME: str = os.getenv("MODEL_NAME", "gpt-4o")
+MODEL_NAME: str = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
 
 # ── Workday Configuration ──
 WORKDAY_RAAS_URL: str = os.getenv("WORKDAY_RAAS_URL", "")

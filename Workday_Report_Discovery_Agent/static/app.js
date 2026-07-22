@@ -15,7 +15,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Settings
     const llmSlider = document.getElementById('llm-top-k');
     const llmVal = document.getElementById('llm-val');
-    const useLlmToggle = document.getElementById('use-llm');
 
     // Selection Elements
     const selectedList = document.getElementById('selected-list');
@@ -46,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function checkSyncStatus() {
         try {
-            const res = await fetch('/api/sync-status');
+            const res = await fetch('api/sync-status');
             const data = await res.json();
 
             if (data.status === 'syncing') {
@@ -73,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchStats() {
         try {
-            const res = await fetch('/api/stats');
+            const res = await fetch('api/stats');
             const data = await res.json();
             catalogCountEl.textContent = data.num_reports.toLocaleString();
 
@@ -83,8 +82,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 llmStatusEl.textContent = 'Offline (Base Only)';
                 llmStatusEl.classList.add('offline');
-                useLlmToggle.checked = false;
-                useLlmToggle.disabled = true;
             }
         } catch (error) {
             console.error("Failed to fetch stats:", error);
@@ -105,11 +102,11 @@ document.addEventListener('DOMContentLoaded', () => {
             query: query,
             bm25_top_n: 50, // Fixed size to retrieve the best candidate pool for the LLM
             llm_top_k: parseInt(llmSlider.value),
-            use_llm: useLlmToggle.checked
+            use_llm: true
         };
 
         try {
-            const res = await fetch('/api/search', {
+            const res = await fetch('api/search', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestBody)
@@ -248,7 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
         proceedBtn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0 8px 0 0;"></div> Sending...';
 
         try {
-            const res = await fetch('/api/confirm', {
+            const res = await fetch('api/confirm', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ reports: reports })
@@ -281,7 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
         syncBtn.disabled = true;
 
         try {
-            const res = await fetch('/api/sync', { method: 'POST' });
+            const res = await fetch('api/sync', { method: 'POST' });
             const data = await res.json();
 
             if (res.ok && data.success) {

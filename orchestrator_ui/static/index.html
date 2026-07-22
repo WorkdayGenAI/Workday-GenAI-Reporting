@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workday Report Migration Orchestrator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         VIEW 1: HERO LANDING PAGE
+         ═══════════════════════════════════════════════════════════════════ -->
+    <section id="view-hero" class="view active">
+        <canvas id="hero-canvas"></canvas>
+        <div class="hero-bg">
+            <div class="hero-glow hero-glow-1"></div>
+            <div class="hero-glow hero-glow-2"></div>
+            <div class="hero-glow hero-glow-3"></div>
+        </div>
+        <div class="hero-content">
+            <div class="hero-badge lp-hero-in" style="animation-delay: 0.1s">
+                <span class="badge-dot"></span>
+                AI-Powered Automation
+            </div>
+            <h1 class="hero-title lp-hero-in" style="animation-delay: 0.2s">
+                Workday Report<br>Discovery Agent
+            </h1>
+            <p class="hero-subtitle lp-hero-in" style="animation-delay: 0.4s">
+                Discover, migrate, and export Workday custom reports and dashboards
+                with intelligent automation.
+            </p>
+            <button id="hero-proceed-btn" class="hero-btn lp-hero-in" style="animation-delay: 0.6s">
+                <span>Get Started</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path d="M5 12h14"></path>
+                    <path d="m12 5 7 7-7 7"></path>
+                </svg>
+            </button>
+            <div class="hero-stats lp-hero-in" style="animation-delay: 0.8s">
+                <div class="hero-stat">
+                    <span class="hero-stat-value">11,000+</span>
+                    <span class="hero-stat-label">Reports Indexed</span>
+                </div>
+                <div class="hero-stat-divider"></div>
+                <div class="hero-stat">
+                    <span class="hero-stat-value">4</span>
+                    <span class="hero-stat-label">Agent Workflows</span>
+                </div>
+                <div class="hero-stat-divider"></div>
+                <div class="hero-stat">
+                    <span class="hero-stat-value">100%</span>
+                    <span class="hero-stat-label">Automated</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         VIEW 1.5: DISCOVERY AGENT (embedded iframe)
+         ═══════════════════════════════════════════════════════════════════ -->
+    <section id="view-discovery" class="view">
+        <nav class="top-bar">
+            <button id="back-to-hero-from-disc" class="nav-back" title="Back to home">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="m15 18-6-6 6-6" />
+                </svg>
+            </button>
+            <h2 class="top-bar-title">Report Discovery Agent</h2>
+            <div class="discovery-top-hint">Search and select reports, then click <strong>"Proceed to
+                    Migration"</strong> in the sidebar</div>
+        </nav>
+        <div class="discovery-iframe-container">
+            <div id="discovery-loading" class="discovery-loading">
+                <div class="spinner-lg"></div>
+                <p>Starting Report Discovery Agent…</p>
+            </div>
+            <iframe id="discovery-iframe" src="about:blank" frameborder="0"></iframe>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         VIEW 2: DASHBOARD (4 WORKFLOW CARDS)
+         ═══════════════════════════════════════════════════════════════════ -->
+    <section id="view-dashboard" class="view">
+        <nav class="top-bar">
+            <button id="back-to-discovery" class="nav-back" title="Back to discovery">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="m15 18-6-6 6-6" />
+                </svg>
+            </button>
+            <h2 class="top-bar-title">Workday Report Orchestrator</h2>
+        </nav>
+        <div class="dashboard-container">
+            <div class="dashboard-header">
+                <h1 class="dashboard-title">Select Workflow</h1>
+                <p class="dashboard-subtitle">Choose a workflow to get started. Each agent automates a different aspect
+                    of the Workday migration process.</p>
+            </div>
+            <div class="cards-grid">
+                <!-- Card 1: Full Workflow -->
+                <div class="workflow-card card-full" data-workflow="full">
+                    <div class="card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path
+                                d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6">
+                            </path>
+                        </svg>
+                    </div>
+                    <div class="card-badge">Recommended</div>
+                    <h3 class="card-title">Full Workflow</h3>
+                    <p class="card-desc">Discovery → Report Migration → Export. Complete end-to-end automation with
+                        optional parallel export.</p>
+                    <div class="card-tags">
+                        <span class="tag">Discovery UI</span>
+                        <span class="tag">Config Package</span>
+                        <span class="tag">Excel Export</span>
+                    </div>
+                    <button class="card-launch-btn">Launch →</button>
+                </div>
+
+                <!-- Card 2: Report Migration -->
+                <div class="workflow-card card-migration" data-workflow="report_migration">
+                    <div class="card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path
+                                d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z">
+                            </path>
+                        </svg>
+                    </div>
+                    <h3 class="card-title">Report Migration</h3>
+                    <p class="card-desc">Create a Configuration Package with "Custom Reports" and migrate to Customer
+                        Central.</p>
+                    <div class="card-tags">
+                        <span class="tag">Custom Reports</span>
+                        <span class="tag">Config Package</span>
+                    </div>
+                    <button class="card-launch-btn">Launch →</button>
+                </div>
+
+                <!-- Card 3: Dashboard Migration -->
+                <div class="workflow-card card-dashboard" data-workflow="dashboard_migration">
+                    <div class="card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path
+                                d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25a2.25 2.25 0 0 1-2.25-2.25v-2.25Z">
+                            </path>
+                        </svg>
+                    </div>
+                    <h3 class="card-title">Dashboard Migration</h3>
+                    <p class="card-desc">Create a Configuration Package with "Custom Dashboards with Tabs" and migrate.
+                    </p>
+                    <div class="card-tags">
+                        <span class="tag">Dashboards</span>
+                        <span class="tag">Config Package</span>
+                    </div>
+                    <button class="card-launch-btn">Launch →</button>
+                </div>
+
+                <!-- Card 4: Export -->
+                <div class="workflow-card card-export" data-workflow="export">
+                    <div class="card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path
+                                d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3">
+                            </path>
+                        </svg>
+                    </div>
+                    <h3 class="card-title">Export Definitions</h3>
+                    <p class="card-desc">Download report definitions as Excel files. Navigate to each report and export.
+                    </p>
+                    <div class="card-tags">
+                        <span class="tag">Excel .xlsx</span>
+                        <span class="tag">Report Definitions</span>
+                    </div>
+                    <button class="card-launch-btn">Launch →</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         VIEW 3: CONFIGURATION FORM
+         ═══════════════════════════════════════════════════════════════════ -->
+    <section id="view-config" class="view">
+        <nav class="top-bar">
+            <button id="back-to-dashboard" class="nav-back" title="Back to workflows">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="m15 18-6-6 6-6" />
+                </svg>
+            </button>
+            <h2 class="top-bar-title" id="config-title">Configuration</h2>
+        </nav>
+        <div class="config-container">
+            <form id="config-form" autocomplete="off">
+                <!-- Industry Name (hidden for export-only) -->
+                <div class="form-group" id="fg-industry">
+                    <label for="input-industry">Industry Name</label>
+                    <input type="text" id="input-industry" placeholder="e.g. Healthcare, Finance, Retail" required>
+                </div>
+
+                <!-- Items (reports / dashboards) -->
+                <div class="form-group">
+                    <label for="input-items" id="items-label">Report Names</label>
+                    <p class="form-hint" id="items-hint">Enter one per line, or comma-separated.</p>
+                    <textarea id="input-items" rows="6" placeholder="Report Name 1&#10;Report Name 2&#10;Report Name 3"
+                        required></textarea>
+                </div>
+
+                <!-- Discovery button (Full Workflow only) -->
+                <div class="form-group" id="fg-discovery" style="display:none;">
+                    <button type="button" id="btn-open-discovery" class="discovery-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        Search in Report Discovery UI
+                    </button>
+                    <p class="form-hint">Opens the AI-powered search UI in a new tab. Selected reports will
+                        auto-populate above.</p>
+                </div>
+
+
+
+                <!-- Credentials -->
+                <div class="form-section-title">Workday Credentials</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="input-user">Username</label>
+                        <input type="text" id="input-user" placeholder="Workday username">
+                        <p class="form-hint" id="user-hint"></p>
+                    </div>
+                    <div class="form-group">
+                        <label for="input-pass">Password</label>
+                        <input type="password" id="input-pass" placeholder="Workday password">
+                    </div>
+                </div>
+                <p class="form-security-note">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                    Credentials are sent to the local server only (127.0.0.1) and never leave your machine.
+                </p>
+
+                <button type="submit" class="launch-btn" id="btn-launch">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="5 3 19 12 5 21 5 3" />
+                    </svg>
+                    Launch Agent
+                </button>
+            </form>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         VIEW 4: PROGRESS & RESULTS
+         ═══════════════════════════════════════════════════════════════════ -->
+    <section id="view-progress" class="view">
+        <nav class="top-bar">
+            <h2 class="top-bar-title">Agent Progress</h2>
+        </nav>
+        <div class="progress-container">
+            <div id="agents-progress" class="agents-progress">
+                <!-- Dynamically populated by JS -->
+            </div>
+
+            <!-- Pause banner (shown when SSO login required) -->
+            <div id="pause-banner" class="pause-banner hidden">
+                <div class="pause-icon">⏸️</div>
+                <div class="pause-content">
+                    <h3 id="pause-title">Action Required</h3>
+                    <p id="pause-message">Please complete the SSO login in the browser window.</p>
+                </div>
+                <button id="btn-pause-resume" class="pause-resume-btn">
+                    Done — Resume Agent
+                </button>
+            </div>
+
+            <!-- Results (shown when all done) -->
+            <div id="results-panel" class="results-panel hidden">
+                <div id="results-banner" class="results-banner"></div>
+                <div id="results-details" class="results-details"></div>
+                <button id="btn-back-dashboard" class="back-dashboard-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="m15 18-6-6 6-6" />
+                    </svg>
+                    Back to Dashboard
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Toast -->
+    <div id="toast" class="toast hidden"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

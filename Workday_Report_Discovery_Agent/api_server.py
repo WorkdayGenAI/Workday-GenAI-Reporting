@@ -6,6 +6,7 @@ import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -89,6 +90,14 @@ async def lifespan(app: FastAPI):
 
 # Initialize FastAPI app
 app = FastAPI(title="Report Discovery Agent API", lifespan=lifespan)
+
+# Allow cross-origin requests (needed when embedded in orchestrator iframe)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # ---------------------------------------------------------------------------
@@ -247,12 +256,13 @@ def start_server(port: int = 8100) -> threading.Thread:
 
     cfg = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
     server = uvicorn.Server(cfg)
+    server.install_signal_handlers = lambda: None
 
     thread = threading.Thread(target=server.run, daemon=True, name="discovery-server")
     thread.start()
 
     # Give the server a moment to start
-    time.sleep(2)
+    time.sleep(1)
 
     return thread
 

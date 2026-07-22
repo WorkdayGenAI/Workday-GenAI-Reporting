@@ -648,12 +648,24 @@ async def _async_step_dump(page, step):
 
 
 async def _async_step_pause(_page, step):
-    """Block until the user confirms — runs the blocking dialog in a thread."""
+    """Block until the user confirms — runs the blocking dialog in a thread.
+
+    If an ``_on_pause`` callback is attached (via the web UI), it is used
+    instead of the Windows popup.  The callback is expected to block until
+    the user resolves the pause from the browser.
+    """
     agent = step.get("_agent_name", "")
     title = step.get("title", "Action required")
     if agent:
         title = f"[{agent}] {title}"
     message = step.get("message", "Paused. Click OK / press Enter to continue.")
+
+    # Web UI pause handler (takes priority)
+    on_pause = step.get("_on_pause")
+    if on_pause:
+        await asyncio.to_thread(on_pause, title, message)
+        return "user confirmed (web UI); resuming"
+
     if not os.environ.get("AGENT_NO_POPUP"):
         try:
             import ctypes
@@ -771,6 +783,8 @@ async def run_config_async(
     context: Any,
     *,
     agent_name: str = "agent",
+    on_step: Any = None,
+    on_pause: Any = None,
 ) -> tuple[int, str | None]:
     """Execute a config dict against a pre-created async BrowserContext.
 
@@ -779,10 +793,21 @@ async def run_config_async(
     to run multiple agents concurrently via ``asyncio.gather`` within a single
     browser process, each with its own isolated context.
 
+    Parameters
+    ----------
+    on_step : callable, optional
+        ``on_step(agent_name, step_num, total, label, status)`` — called after
+        each step completes.  Used by the web UI for SSE progress streaming.
+    on_pause : callable, optional
+        ``on_pause(title, message)`` — called for ``pause`` steps.  Should
+        block until the user resolves the pause.  Used by the web UI to show
+        a resume button instead of a Windows popup.
+
     Returns ``(exit_code, error_message)``.  ``exit_code`` 0 means success.
     """
     steps = config["steps"]
-    con.agent_start(agent_name, len(steps))
+    total = len(steps)
+    con.agent_start(agent_name, total)
 
     error_message: str | None = None
     page = await context.new_page()
@@ -790,8 +815,15 @@ async def run_config_async(
 
     try:
         for i, step in enumerate(steps, start=1):
+            # Inject callbacks into step dict for the pause handler
+            if on_pause:
+                step["_on_pause"] = on_pause
             await run_step_async(state, context, step, i, agent_name)
-        con.success(f"[{agent_name}] All {len(steps)} steps completed successfully.")
+            # Fire on_step callback after successful completion
+            if on_step:
+                label = step.get("label", step.get("action", ""))
+                on_step(agent_name, i, total, label, "done")
+        con.success(f"[{agent_name}] All {total} steps completed successfully.")
         exit_code = 0
     except StepError as exc:
         error_message = str(exc)

@@ -10,6 +10,7 @@ echo Building standalone executable with PyInstaller...
     --add-data "Workday_Report_Discovery_Agent/static;Workday_Report_Discovery_Agent/static" ^
     --add-data "Workday_Report_Discovery_Agent/data;Workday_Report_Discovery_Agent/data" ^
     --add-data "Workday_Report_Discovery_Agent/prompts;Workday_Report_Discovery_Agent/prompts" ^
+    --add-data "orchestrator_ui/static;orchestrator_ui/static" ^
     --hidden-import "Workday_Report_Discovery_Agent" ^
     --hidden-import "Workday_Report_Discovery_Agent.config" ^
     --hidden-import "Workday_Report_Discovery_Agent.api_server" ^
@@ -21,6 +22,8 @@ echo Building standalone executable with PyInstaller...
     --hidden-import "Workday_Report_Discovery_Agent.synonyms" ^
     --hidden-import "Workday_Report_Discovery_Agent.sync_catalog" ^
     --hidden-import "Workday_Report_Discovery_Agent.cli" ^
+    --hidden-import "orchestrator_ui" ^
+    --hidden-import "orchestrator_ui.server" ^
     --hidden-import "uvicorn.logging" ^
     --hidden-import "uvicorn.loops" ^
     --hidden-import "uvicorn.loops.auto" ^
