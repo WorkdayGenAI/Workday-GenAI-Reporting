@@ -328,9 +328,13 @@
         document.getElementById('agents-progress').innerHTML = '';
         document.getElementById('pause-banner').classList.add('hidden');
         document.getElementById('results-panel').classList.add('hidden');
-        // Show cancel button, hide it when done
+        // Show cancel button, hide it when done, reset its content
         const cancelBtn = document.getElementById('btn-cancel-workflow');
-        if (cancelBtn) { cancelBtn.classList.remove('hidden'); cancelBtn.disabled = false; }
+        if (cancelBtn) {
+            cancelBtn.classList.remove('hidden');
+            cancelBtn.disabled = false;
+            cancelBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Cancel Workflow`;
+        }
         agentTimers = {};
         agentStepCounts = {};
     }

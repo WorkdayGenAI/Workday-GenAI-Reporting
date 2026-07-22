@@ -314,7 +314,6 @@ async def cancel_workflow():
     # The thread will natively push agent_done and all_done events, so we do not push them here,
     # ensuring the frontend receives the full stream of cleanup events.
     run_state.push_event("error_event", {"message": "Workflow cancelled. Cleaning up..."})
-    run_state.running = False
     logger.info("Workflow cancellation requested by user.")
     return {"status": "cancelled"}
 
@@ -369,11 +368,13 @@ def _run_workflow_thread(workflow: str, industry: str | None, items: list[str], 
     finally:
         # Always send all_done so the SSE client can close cleanly
         if not run_state.has_all_done():
+            err_msg = "Task cancelled by user." if run_state.cancel_requested else "Workflow terminated unexpectedly."
             run_state.push_event("all_done", {
-                "results": [{"agent": "System", "exit_code": 1, "error": "Workflow terminated unexpectedly.", "elapsed": 0}],
+                "results": [{"agent": "System", "exit_code": 1, "error": err_msg, "elapsed": 0}],
                 "package_name": None,
             })
         run_state.running = False
+        run_state.cancel_requested = False
         run_state._browser = None
         run_state._workflow_loop = None
         loop.close()
@@ -458,9 +459,15 @@ async def _run_workflow_async(workflow: str, industry: str | None, items: list[s
                         "elapsed": 0.0,
                     })
 
-            await ctx_migration.close()
+            try:
+                await ctx_migration.close()
+            except Exception:
+                pass
             if ctx_export:
-                await ctx_export.close()
+                try:
+                    await ctx_export.close()
+                except Exception:
+                    pass
 
         elif workflow == "report_migration":
             package_name = f"{industry}_Config_Package_{date_str}" if industry else None
@@ -487,7 +494,10 @@ async def _run_workflow_async(workflow: str, industry: str | None, items: list[s
                 "elapsed": round(elapsed, 1),
             })
             run_state.push_event("agent_done", results[-1])
-            await ctx.close()
+            try:
+                await ctx.close()
+            except Exception:
+                pass
 
         elif workflow == "dashboard_migration":
             package_name = f"{industry}_Dashboard_Config_Package_{date_str}" if industry else None
@@ -514,7 +524,10 @@ async def _run_workflow_async(workflow: str, industry: str | None, items: list[s
                 "elapsed": round(elapsed, 1),
             })
             run_state.push_event("agent_done", results[-1])
-            await ctx.close()
+            try:
+                await ctx.close()
+            except Exception:
+                pass
 
         elif workflow == "export":
             export_config = build_export_config(items)
@@ -540,9 +553,15 @@ async def _run_workflow_async(workflow: str, industry: str | None, items: list[s
                 "elapsed": round(elapsed, 1),
             })
             run_state.push_event("agent_done", results[-1])
-            await ctx.close()
+            try:
+                await ctx.close()
+            except Exception:
+                pass
 
-        await browser.close()
+        try:
+            await browser.close()
+        except Exception:
+            pass
 
     run_state.push_event("all_done", {
         "results": results,

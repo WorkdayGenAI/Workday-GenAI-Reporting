@@ -813,23 +813,28 @@ async def run_config_async(
     page = await context.new_page()
     state: dict[str, Any] = {"page": page}
 
+    completed_steps = 0
     try:
         for i, step in enumerate(steps, start=1):
             if cancel_check and cancel_check():
-                raise StepError("Cancelled by user")
+                raise StepError(f"Task cancelled by user. Completed {completed_steps} of {total} steps before cancellation.")
             # Inject callbacks into step dict for the pause handler
             if on_pause:
                 step["_on_pause"] = on_pause
             await run_step_async(state, context, step, i, agent_name)
+            completed_steps = i
             # Fire on_step callback after successful completion
             if on_step:
                 label = step.get("label", step.get("action", ""))
                 on_step(agent_name, i, total, label, "done")
         con.success(f"[{agent_name}] All {total} steps completed successfully.")
         exit_code = 0
-    except StepError as exc:
-        error_message = str(exc)
-        con.fail(f"[{agent_name}] ERROR: {exc}")
+    except (StepError, Exception) as exc:
+        if cancel_check and cancel_check():
+            error_message = f"Task cancelled by user. Completed {completed_steps} of {total} steps before cancellation."
+        else:
+            error_message = str(exc)
+        con.fail(f"[{agent_name}] ERROR: {error_message}")
         try:
             os.makedirs("defects", exist_ok=True)
             screenshot_path = os.path.join("defects", f"error-{agent_name}.png")
