@@ -407,89 +407,97 @@ The Reporting Orchestrator Agent follows a \textbf{layered architecture} with cl
 
 \begin{figure}[H]
 \centering
+\resizebox{0.95\textwidth}{!}{%
 \begin{tikzpicture}[
-  node distance=1.2cm and 2cm,
+  node distance=1cm and 1.2cm,
   box/.style={
-    rectangle, rounded corners=4pt,
-    minimum width=3.8cm, minimum height=1.1cm,
-    text centered, draw=black!50, line width=0.6pt,
-    font=\small\sffamily
-  },
-  smallbox/.style={
     rectangle, rounded corners=3pt,
-    minimum width=2.8cm, minimum height=0.9cm,
-    text centered, draw=black!40, line width=0.5pt,
+    minimum width=3cm, minimum height=0.9cm,
+    text centered, draw=black!50, line width=0.5pt,
     font=\footnotesize\sffamily
   },
-  arrow/.style={-{Stealth[length=6pt]}, thick, draw=black!60},
-  darrow/.style={
-    {Stealth[length=5pt]}-{Stealth[length=5pt]},
-    thick, draw=black!50
+  smallbox/.style={
+    rectangle, rounded corners=2pt,
+    minimum width=2.2cm, minimum height=0.75cm,
+    text centered, draw=black!40, line width=0.4pt,
+    font=\scriptsize\sffamily
   },
-  layerlabel/.style={
-    font=\footnotesize\sffamily\bfseries, text=black!50, rotate=90
+  arrow/.style={-{Stealth[length=5pt]}, semithick, draw=black!60},
+  darrow/.style={
+    {Stealth[length=4pt]}-{Stealth[length=4pt]},
+    semithick, draw=black!50
   }
 ]
 
 % ── User Layer ──
 \node[box, fill=infralayer!15] (user) {User (Web Browser)};
 
-% ── Presentation Layer ──
-\node[box, fill=uilayer!15, below=of user] (spa) {SPA Dashboard};
-\node[smallbox, fill=uilayer!10, right=2.5cm of spa] (discovery_ui) {Discovery UI};
+% ── Presentation Layer (side by side) ──
+\node[box, fill=uilayer!15, below left=1.2cm and 1cm of user] (spa) {SPA Dashboard};
+\node[smallbox, fill=uilayer!10, below right=1.2cm and 1cm of user] (discovery_ui) {Discovery UI};
 
 % ── API Layer ──
-\node[box, fill=apilayer!20, below=1.5cm of spa] (api) {FastAPI REST + SSE};
-\node[smallbox, fill=apilayer!15, right=2.5cm of api] (disc_api) {Discovery API};
+\node[box, fill=apilayer!20, below=1.2cm of spa] (api) {FastAPI REST + SSE};
+\node[smallbox, fill=apilayer!15, below=1.2cm of discovery_ui] (disc_api) {Discovery API};
 
-% ── Orchestration Layer ──
-\node[box, fill=logiclayer!20, below=1.5cm of api] (orchestrator) {Workflow Orchestrator};
+% ── Orchestration + AI side by side ──
+\node[box, fill=logiclayer!20, below=1.2cm of api] (orchestrator) {Workflow Orchestrator};
+\node[box, fill=ailayer!20, below=1.2cm of disc_api] (ai_pipeline) {AI Discovery Pipeline};
 
-% ── Agent Layer ──
-\node[smallbox, fill=logiclayer!15, below left=1.5cm and 0.5cm of orchestrator] (migration) {Report Config\\Package Agent};
-\node[smallbox, fill=logiclayer!15, below=1.5cm of orchestrator] (dashboard) {Dashboard Config\\Package Agent};
-\node[smallbox, fill=logiclayer!15, below right=1.5cm and 0.5cm of orchestrator] (export) {Export Definitions\\Agent};
+% ── Agent Layer (stacked vertically under orchestrator) ──
+\node[smallbox, fill=logiclayer!15, below left=1.2cm and 0.8cm of orchestrator] (migration) {Report Config Pkg};
+\node[smallbox, fill=logiclayer!15, below=1.2cm of orchestrator] (dashboard) {Dashboard Config Pkg};
+\node[smallbox, fill=logiclayer!15, below right=1.2cm and 0.8cm of orchestrator] (export) {Export Definitions};
+
+% ── AI sub-components ──
+\node[smallbox, fill=ailayer!12, below left=1.2cm and 0cm of ai_pipeline] (bm25) {BM25 Engine};
+\node[smallbox, fill=ailayer!12, below right=1.2cm and 0cm of ai_pipeline] (llm) {LLM Scorer};
 
 % ── Runner Engine ──
-\node[box, fill=storagelayer!15, below=1.2cm of dashboard] (runner) {Config-Driven Runner};
-
-% ── AI Layer ──
-\node[box, fill=ailayer!20, right=2.5cm of orchestrator] (ai_pipeline) {AI Discovery Pipeline};
-\node[smallbox, fill=ailayer!15, below left=1.2cm and -0.5cm of ai_pipeline] (bm25) {BM25 Engine};
-\node[smallbox, fill=ailayer!15, below right=1.2cm and -0.5cm of ai_pipeline] (llm) {LLM Scorer};
+\node[box, fill=storagelayer!15, below=1cm of dashboard] (runner) {Config-Driven Runner};
 
 % ── External ──
-\node[box, fill=storagelayer!20, below=1.2cm of runner] (playwright) {Playwright Browser};
-\node[smallbox, fill=infralayer!15, right=2.5cm of llm] (groq) {Groq Cloud API};
-\node[smallbox, fill=infralayer!15, below=1cm of playwright] (workday) {Workday DPT3\\Tenant};
+\node[smallbox, fill=infralayer!15, below=1cm of llm] (groq) {Groq Cloud API};
+\node[box, fill=storagelayer!20, below=1cm of runner] (playwright) {Playwright Browser};
+\node[smallbox, fill=infralayer!15, below=1cm of playwright] (workday) {Workday DPT3 Tenant};
 
-% ── Arrows ──
+% ── Arrows: User down ──
 \draw[arrow] (user) -- (spa);
-\draw[arrow] (user.east) -| (discovery_ui);
+\draw[arrow] (user) -- (discovery_ui);
+
+% ── Arrows: Presentation to API ──
 \draw[arrow] (spa) -- (api);
 \draw[darrow] (discovery_ui) -- (disc_api);
+
+% ── Arrows: API to Logic ──
 \draw[arrow] (api) -- (orchestrator);
 \draw[darrow] (disc_api) -- (ai_pipeline);
 
+% ── Arrows: Orchestrator to Agents ──
 \draw[arrow] (orchestrator) -- (migration);
 \draw[arrow] (orchestrator) -- (dashboard);
 \draw[arrow] (orchestrator) -- (export);
 
-\draw[arrow] (migration.south) -- ++(0,-0.4) -| (runner);
+% ── Arrows: Agents to Runner ──
+\draw[arrow] (migration.south) -- ++(0,-0.3) -| (runner);
 \draw[arrow] (dashboard) -- (runner);
-\draw[arrow] (export.south) -- ++(0,-0.4) -| (runner);
+\draw[arrow] (export.south) -- ++(0,-0.3) -| (runner);
 
+% ── Arrows: AI sub-components ──
 \draw[arrow] (ai_pipeline) -- (bm25);
 \draw[arrow] (ai_pipeline) -- (llm);
 \draw[arrow] (llm) -- (groq);
 
+% ── Arrows: Runner to Browser ──
 \draw[arrow] (runner) -- (playwright);
 \draw[arrow] (playwright) -- (workday);
 
-% ── SSE Arrow ──
-\draw[darrow, dashed, draw=apilayer] (api.west) -- ++(-1.5,0) |- (spa.west) node[midway, left, font=\tiny\sffamily, text=apilayer] {SSE};
+% ── SSE feedback arrow ──
+\draw[darrow, dashed, draw=apilayer] (api.west) -- ++(-1,0) |- (spa.west)
+  node[pos=0.25, left, font=\tiny\sffamily, text=apilayer] {SSE};
 
-\end{tikzpicture}
+\end{tikzpicture}%
+}% end resizebox
 \caption{High-Level System Architecture}
 \label{fig:architecture}
 \end{figure}
@@ -996,8 +1004,7 @@ for i, step in enumerate(steps, start=1):
 
 \textbf{Step 1 --- Clone Repository:}
 \begin{lstlisting}[language=bash, caption={Clone and Enter Project}, label={lst:clone}]
-git clone https://github.com/rishabhsaklani08/
-    Reporting_Orchestrator_Agent.git
+git clone https://github.com/Reporting_Orchestrator_Agent.git
 cd Reporting_Orchestrator_Agent
 \end{lstlisting}
 
