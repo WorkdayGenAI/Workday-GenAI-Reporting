@@ -29,3 +29,5 @@ cdp_test*.png
 build/
 dist/
 *.spec
+*.exe
+*.zip
