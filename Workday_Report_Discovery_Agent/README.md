@@ -1,7 +1,7 @@
 # Workday Report Discovery Agent
-## BM25 + LLM Semantic Search for Legacy Reports
+## BM25 + LLM Semantic Search for Legacy Workday Reports
 
-A two-stage report discovery agent that helps users find the most relevant legacy reports from a catalog of ~11,000+ Workday reports using natural language queries.
+A two-stage hybrid search and discovery engine that enables users to find relevant Workday reports from a catalog of **4,581 custom reports** using plain natural language queries (e.g., *"employee termination reports with performance ratings"*).
 
 ---
 
@@ -12,17 +12,17 @@ A two-stage report discovery agent that helps users find the most relevant legac
 ┌──────────────┐    ┌──────────────────┐    ┌────────────────┐
 │  User Query  │───>│ Query Preprocess │───>│  BM25 Search   │
 │  (natural    │    │ • Tokenize       │    │ • Full catalog │
-│   language)  │    │ • Stem & Synonyms│    │ • Top-50 cands │
+│   language)  │    │ • Stem & Synonyms│    │ • Top-30 cands │
 └──────────────┘    └──────────────────┘    └───────┬────────┘
                                                     │
                                                     ▼
                     ┌──────────────────┐    ┌────────────────┐
                     │  Final Response  │<───│  LLM Scorer    │
-                    │ • Ranked reports │    │ • Groq LLaMA   │
+                    │ • Ranked reports │    │ • Groq / OpenAI│
                     │ • Explanations   │    │ • Score 0-100  │
                     └──────────────────┘    └────────────────┘
 
-                        OFFLINE PREPARATION
+                         OFFLINE PREPARATION
 ┌──────────────────────────────────────────────────────────┐
 │  Workday RaaS  →  JSON Catalog  →  Composite BM25 Index  │
 └──────────────────────────────────────────────────────────┘
@@ -33,24 +33,24 @@ A two-stage report discovery agent that helps users find the most relevant legac
 ## Project Structure
 
 ```
-Report_Ranking_Agent/
+Workday_Report_Discovery_Agent/
 ├── README.md               ← You are here
-├── requirements.txt        ← Python dependencies
-├── .env.example            ← Environment variable template
-├── config.py               ← Configuration and thresholds
-├── api_server.py           ← FastAPI backend server
-├── agent.py                ← Main orchestrator (the Agent)
-├── bm25_engine.py          ← Keyword search engine (from scratch)
-├── llm_scorer.py           ← LLM candidate re-ranker (Groq API)
-├── report_catalog.py       ← Data loading & validation
+├── config.py               ← Configuration settings and field boost weights
+├── api_server.py           ← FastAPI backend server & sub-app mount
+├── agent.py                ← Main pipeline orchestrator (ReportDiscoveryAgent)
+├── bm25_engine.py          ← Keyword search engine with field boosting
+├── llm_scorer.py           ← LLM candidate re-ranker with payload auto-reduction
+├── report_catalog.py       ← Catalog data loader & schema normalizer
 ├── stemmer.py              ← Custom suffix-stripping & tokenization
-├── synonyms.py             ← Workday & HR synonym dictionaries
-├── sync_catalog.py         ← Workday RaaS syncing logic
-├── cli.py                  ← Command-line interface
-├── evaluation.py           ← Automated accuracy evaluations
-├── data/                   ← Stored JSON catalogs
-├── prompts/                ← LLM instructions (scoring_prompt.txt)
-└── static/                 ← Frontend Vanilla HTML/JS UI
+├── synonyms.py             ← Workday & HR domain synonym dictionaries
+├── sync_catalog.py         ← Workday RaaS sync tool
+├── cli.py                  ← Command-line discovery interface
+├── evaluation.py           ← Search quality benchmark test harness
+├── data/
+│   └── All_Custom_Reports_Enabled_as_RAAS.json  ← 4,581 custom reports extract
+├── prompts/
+│   └── scoring_prompt.txt  ← LLM system prompt & scoring rules
+└── static/                 ← Standalone Web UI
     ├── index.html
     ├── styles.css
     └── app.js
@@ -60,99 +60,60 @@ Report_Ranking_Agent/
 
 ## Tech Stack
 
-- **Frontend**: Vanilla HTML5, CSS3 (Custom Dark Mode UI), JavaScript (ES6+)
-- **Backend**: Python 3.10+, FastAPI, Uvicorn
-- **Search Engine**: Custom Python BM25 Implementation
-- **LLM Provider**: Groq API (Meta LLaMA models)
+* **Search Engine**: Custom in-memory BM25 with multi-field boosting (Name, Description, Data Source, Fields Displayed, Fields Referenced).
+* **LLM Re-Ranking**: Groq Cloud API / OpenAI API with automatic prompt chunking and payload reduction.
+* **Backend**: Python 3.10+, FastAPI, Uvicorn.
+* **Frontend**: Vanilla HTML5, modern CSS3 (custom dark mode), JavaScript (ES6+).
 
 ---
 
 ## Quick Start
 
-### 1. Install dependencies
-```bash
-pip install -r requirements.txt
+### 1. Run via CLI
+```powershell
+.venv\Scripts\python.exe Workday_Report_Discovery_Agent/cli.py "Termination by performance"
 ```
 
-### 2. Configure environment
-```bash
-cp .env.example .env
-```
-Edit `.env` and add your:
-- Groq/OpenAI API key
-- Workday RaaS URL and ISU Credentials
-
-### 3. Run the Web Application
-```bash
-python api_server.py
+### 2. Run Standalone Web Server
+```powershell
+.venv\Scripts\python.exe Workday_Report_Discovery_Agent/api_server.py
 ```
 Open your browser to `http://localhost:8000`.
 
-### 4. Or use the CLI
-```bash
-python cli.py
-```
-
-### 5. Or use programmatically
+### 3. Programmatic Usage in Python
 ```python
-from agent import ReportDiscoveryAgent
+from Workday_Report_Discovery_Agent.agent import ReportDiscoveryAgent
 
 agent = ReportDiscoveryAgent()
-results = agent.search("I want a report that gives pre-hire details")
+results = agent.search("employee terminations with performance rating", llm_top_k=5)
+
 for r in results:
-    print(f"[{r['band']}] {r['report_name']} — {r['score']}/100")
-    print(f"  Why: {r['explanation']}")
+    print(f"[{r['band']}] {r['report_name']} — Score: {r['score']}%")
+    print(f"  Explanation: {r['explanation']}\n")
 ```
 
 ---
 
 ## Configuration
 
-The `.env` file controls core behavior:
+Configuration is loaded from the root `.env` file:
 
 | Variable | Default | Description |
 |---|---|---|
-| `OPENAI_API_KEY` | — | Your Groq API key |
-| `OPENAI_BASE_URL`| `https://api.groq.com/openai/v1` | Groq API URL |
-| `MODEL_NAME` | `llama-3.3-70b-versatile` | LLM for scoring |
-| `BM25_TOP_N` | `30` | Fallback candidates passed to LLM |
-| `WORKDAY_RAAS_URL` | — | URL to JSON Workday Report export |
-| `WORKDAY_ISU_USERNAME`| — | Integration System User name |
-
-*Note: You can tweak scoring boosts in `config.py`.*
-
----
-
-## Key Features & Fixes Included
-
-1. **Semantic Scoring with Strict Guardrails**: The LLM evaluates missing fields and descriptions and explicitly penalizes empty reports (capping at score 40) preventing false-positive rankings.
-2. **HR Synonym Engine**: Built-in synonym handling for leave/absence, payroll, pre-hire, compliance, diversity, benefits, and contingent worker terminology.
-3. **Hyphenated Tokenization**: Smart handling of HR terms like "Pre-Hire" vs "Pre Hire" so they map to the same token.
-4. **Live Workday Sync**: Pull down the latest catalog from the Workday RaaS API instantly via the web UI.
+| `OPENAI_API_KEY` | — | Groq Cloud or OpenAI API key |
+| `OPENAI_BASE_URL`| `https://api.groq.com/openai/v1` | LLM API endpoint |
+| `MODEL_NAME` | `llama-3.3-70b-versatile` | Model name for candidate re-ranking |
+| `BM25_TOP_N` | `30` | Top candidates retrieved by BM25 for LLM scoring |
+| `LLM_TOP_K` | `5` | Number of final ranked reports returned |
+| `WORKDAY_RAAS_URL` | — | URL to Workday RaaS JSON export |
+| `WORKDAY_ISU_USERNAME`| — | Integration System User username |
+| `WORKDAY_ISU_PASSWORD`| — | Integration System User password |
 
 ---
 
-## Deployment on Vercel
+## Key Features
 
-This project includes a [vercel.json](file:///c:/Users/rishabh.saklani/OneDrive%20-%20Accenture/Desktop/Report_Ranking_Agent/Report_Ranking_Agent/vercel.json) configuration file that handles:
-- Routing `/api/*` endpoints to the FastAPI application.
-- Natively serving static files under `/static` directly via Vercel's global CDN for maximum speed.
-
-### Steps to Deploy:
-1. Push the repository to GitHub.
-2. In Vercel, select **Import Project** and choose this repository.
-3. Keep the **Build and Output Settings** at their **defaults** (do not override them, as `vercel.json` configures everything automatically).
-4. Add the required **Environment Variables** in the Vercel dashboard:
-   - `OPENAI_API_KEY`: `<Your Groq/OpenAI API Key>`
-   - `OPENAI_BASE_URL`: `https://api.groq.com/openai/v1`
-   - `MODEL_NAME`: `llama-3.3-70b-versatile`
-   - `WORKDAY_RAAS_URL`: `<Your Workday RaaS URL>`
-   - `WORKDAY_ISU_USERNAME`: `<ISU Username>`
-   - `WORKDAY_ISU_PASSWORD`: `<ISU Password>`
-5. Click **Deploy**.
-
----
-
-## License
-
-Internal use only. Not for redistribution.
+1. **Semantic Scoring with Completeness Guardrails**: The LLM evaluates metadata richness (Name + Description + Fields) and explains the score rationale for every recommendation.
+2. **Payload Size Resilience**: Dynamically detects token limit ceilings (`413 Payload Too Large`) and auto-reduces candidate prompt volume on the fly without crashing.
+3. **HR Domain Synonym Expansion**: Maps industry terms across benefits, leave/absence, payroll, contingent workers, pre-hires, and talent management.
+4. **Live Workday RaaS Sync**: Synchronize the local JSON catalog directly from a Workday RaaS endpoint on demand.
