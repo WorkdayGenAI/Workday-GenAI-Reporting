@@ -50,6 +50,19 @@ class ReportCatalog:
         else:
             records = [raw]
 
+        # Normalize field names so downstream code always sees the same keys.
+        # Workday RaaS extracts may use different field names depending on the
+        # report definition (e.g. "Custom_Report" vs "Report_Name").
+        _FIELD_MAP = {
+            "Custom_Report": "Report_Name",       # report name
+            "Description":   "Brief_Description",  # description
+            "Data_Source":   "DS_Description",      # data source description
+        }
+        for rec in records:
+            for src, dst in _FIELD_MAP.items():
+                if src in rec and dst not in rec:
+                    rec[dst] = rec[src]
+
         self._reports = records
         self._by_name = {
             r.get("Report_Name", "").strip(): r for r in records

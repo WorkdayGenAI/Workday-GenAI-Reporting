@@ -51,7 +51,8 @@ class LLMScorer:
 
     # ── build prompt ──
     def _build_prompt(
-        self, query: str, candidates: List[Dict[str, Any]]
+        self, query: str, candidates: List[Dict[str, Any]],
+        top_k: int | None = None,
     ) -> List[Dict[str, str]]:
         candidate_text = ""
         for i, c in enumerate(candidates, 1):
@@ -68,6 +69,8 @@ class LLMScorer:
             f'User Query: "{query}"\n\n'
             f"Candidate Reports:\n{candidate_text}"
         )
+        if top_k and top_k < len(candidates):
+            user_msg += f"\n\nIMPORTANT: Return only the top {top_k} most relevant results, not all candidates."
 
         return [
             {"role": "system", "content": self._prompt_template},
@@ -83,6 +86,10 @@ class LLMScorer:
     ) -> List[Dict[str, Any]]:
         """
         Score and re-rank candidates using the LLM.
+
+        Automatically handles Groq's TPM (Tokens Per Minute) limits by
+        reducing the number of candidates sent to the LLM when a 413
+        "Payload Too Large" error is received.
 
         Parameters
         ----------
@@ -107,23 +114,22 @@ class LLMScorer:
             logger.warning("No LLM client configured; returning BM25 order.")
             return self._fallback(candidates, top_k, reason="LLM not configured")
 
-        # Cap candidates sent to LLM to avoid token limit issues
-        max_llm_candidates = min(len(candidates), 10)
+        # Start with ideal candidate count; auto-reduce on 413 errors.
+        max_llm_candidates = min(len(candidates), max(top_k * 2, 20), 50)
         llm_candidates = candidates[:max_llm_candidates]
 
-        messages = self._build_prompt(query, llm_candidates)
+        max_attempts = 6          # total attempts (covers size reductions + rate-limit retries)
+        rate_limit_retries = 0    # track rate-limit retries separately
 
-        # Retry with backoff for rate limit (429) errors
-        max_retries = 3
-        retry_delays = [5, 15, 30]  # seconds
+        for attempt in range(max_attempts):
+            messages = self._build_prompt(query, llm_candidates, top_k=top_k)
 
-        for attempt in range(max_retries + 1):
             try:
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
                     temperature=0.0,
-                    max_tokens=8192,
+                    max_tokens=4096,
                 )
                 content = response.choices[0].message.content
                 parsed = self._extract_json(content)
@@ -138,8 +144,9 @@ class LLMScorer:
 
                 # Merge back original report metadata
                 name_to_cand = {
-                    c["report"]["Report_Name"]: c for c in llm_candidates
+                    c["report"].get("Report_Name", ""): c for c in llm_candidates
                 }
+
                 enriched = []
                 for item in scored[:top_k]:
                     rname = item.get("report_name", "")
@@ -156,24 +163,49 @@ class LLMScorer:
 
             except Exception as exc:
                 exc_str = str(exc)
-                is_rate_limit = "429" in exc_str or "rate_limit" in exc_str.lower()
 
-                if is_rate_limit and attempt < max_retries:
-                    delay = retry_delays[attempt]
+                # ── 413 Payload Too Large — shrink candidate list and retry ──
+                is_too_large = "413" in exc_str or "too large" in exc_str.lower()
+                if is_too_large and len(llm_candidates) > 5:
+                    new_count = max(len(llm_candidates) // 2, 5)
                     logger.warning(
-                        "LLM rate limited (attempt %d/%d). Retrying in %ds...",
-                        attempt + 1, max_retries, delay,
+                        "Prompt too large for %s (%d candidates). "
+                        "Auto-reducing to %d candidates and retrying…",
+                        self.model, len(llm_candidates), new_count,
+                    )
+                    llm_candidates = candidates[:new_count]
+                    continue  # retry immediately without delay
+
+                # ── 429 Rate Limit — wait and retry (only if NOT a payload issue) ──
+                is_rate_limit = (
+                    "429" in exc_str or "rate_limit" in exc_str.lower()
+                ) and not is_too_large
+                if is_rate_limit and rate_limit_retries < 3:
+                    rate_limit_retries += 1
+                    delay = [5, 15, 30][rate_limit_retries - 1]
+                    logger.warning(
+                        "LLM rate limited (retry %d/3). Retrying in %ds…",
+                        rate_limit_retries, delay,
                     )
                     import time
                     time.sleep(delay)
                     continue
 
-                reason = "Rate limit exceeded — retries exhausted" if is_rate_limit else str(exc)
+                # ── All other errors or exhausted retries — fallback ──
+                if is_too_large:
+                    reason = (
+                        f"Prompt too large for {self.model} even at minimum "
+                        f"candidates — try a model with a higher token limit"
+                    )
+                elif is_rate_limit:
+                    reason = "Rate limit exceeded — retries exhausted"
+                else:
+                    reason = str(exc)
                 logger.error("LLM scoring failed: %s — falling back to BM25 order.", exc)
                 return self._fallback(candidates, top_k, reason=reason)
 
-        # Should not reach here, but safety fallback
-        return self._fallback(candidates, top_k, reason="Unknown error")
+        # Safety fallback
+        return self._fallback(candidates, top_k, reason="Max retry attempts exceeded")
 
     # ── extract JSON from LLM response (handles markdown-wrapped JSON) ──
     @staticmethod

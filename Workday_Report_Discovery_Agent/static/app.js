@@ -119,7 +119,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Warn user if LLM fell back to BM25
             if (data.llm_fallback) {
-                showToast("⚠ LLM rate limit hit — results are ranked by keyword match only. Try again in a few minutes for AI-scored results.", "warning");
+                const reason = data.fallback_reason || "LLM unavailable";
+                showToast(`⚠ ${reason} — results are ranked by keyword match only.`, "warning");
             }
         } catch (error) {
             console.error("Search Error:", error);
@@ -160,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="card-title">${escapeHtml(result.report_name)}</div>
                         </div>
                         <div class="score-badge">
-                            <span class="score-value">${scoreStr}</span>
+                            <span class="score-value">${scoreStr}%</span>
                             <span class="score-label">${result.band}</span>
                         </div>
                     </div>

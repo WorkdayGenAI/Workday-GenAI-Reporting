@@ -54,5 +54,5 @@ PROMPT_TEMPLATE_PATH: str = os.path.join(
 
 # ── Data Path ──
 DEFAULT_CATALOG_PATH: str = os.path.join(
-    _bundled_dir, "data", "All_Custom_Reports_with_Reference_ID.json"
+    _bundled_dir, "data", "All_Custom_Reports_Enabled_as_RAAS.json"
 )
