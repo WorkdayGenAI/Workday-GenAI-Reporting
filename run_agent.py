@@ -239,7 +239,7 @@ def build_config(industry: str, reports: list[str]) -> dict:
         {"action": "click", "selector": "button[data-automation-id='wd-CommandButton_uic_okButton']", "optional": True, "timeout": 8000, "label": "acknowledge migrate message if shown"},
         {"action": "wait", "seconds": 3},
         # Navigate directly to Customer Central instead of clicking the link
-        {"action": "navigate", "url": "https://impl.workday.com/wday/authgwy/accenture_ptcc/login.htmld", "wait_until": "domcontentloaded", "timeout": 90000, "label": "open Customer Central login"},
+        {"action": "navigate", "url": "https://wd2-impl-identity.workday.com/wday/authgwy/accenture_ptcc/upc/login?redirect=n", "wait_until": "domcontentloaded", "timeout": 90000, "label": "open Customer Central login"},
     ]
 
     # one Customer Central block: create the configuration extract and download it

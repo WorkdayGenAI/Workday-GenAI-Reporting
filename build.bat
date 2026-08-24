@@ -38,4 +38,3 @@ echo Building standalone executable with PyInstaller...
 
 echo.
 echo Build complete. Executable is located in dist\Reporting_Orchestrator.exe
-pause
